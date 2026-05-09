@@ -1,0 +1,77 @@
+---
+description: Python coding guardrails. Enforces formatting, typing, OOP-first style, explicit errors, and the concrete PyLint baseline values used in this project.
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python Guardrails
+
+Short, always-on guardrails that fire whenever a `*.py` file is in scope. They
+are the condensed version of the `python-style` skill at
+`~/.cursor/skills/python-style/SKILL.md`. Read that skill for rationale and
+deeper reference.
+
+## Tooling baseline (the user-scope floor)
+
+These are the project owner's defaults — the **floor** for code quality.
+If the target project enforces something different (`ruff`, `flake8`,
+`mypy`, custom `make lint`), honor the project's tooling instead. See
+the `python-style` skill, section 11, for the discovery procedure and
+its cache mechanism.
+
+- **Format**: Black, `line-length = 100`, `target-version = ["py311"]`.
+- **Lint**: PyLint with these caps:
+  - `py-version = 3.11`
+  - `max-line-length = 100`
+  - `max-args = 8`
+  - `max-attributes = 10`
+  - `max-locals = 20`
+  - `max-returns = 6`
+  - `max-branches = 15`
+  - `max-statements = 60`
+- **Test**: pytest, scoped to relevant tests rather than the full suite.
+- Code should sit comfortably under those caps, not press against them,
+  regardless of how strict the project's actual config is. If a function
+  bumps `max-branches`, it almost certainly wants to be split.
+
+## Formatting and lint
+
+- Format and lint using whatever the project enforces (or the baseline
+  above if the project enforces nothing). Treat every finding as blocking.
+- Do not add inline disables (`# pylint: disable=...`, `# noqa`,
+  `# type: ignore`) without explicit user approval. Fix the underlying
+  code instead.
+
+## Style and clarity
+
+- Write the simplest code that solves the problem; cleverness is a cost.
+- Names describe intent, not type. `pending_orders`, not `data`.
+- One idea per function. Keep function bodies short enough to read on one screen.
+- Use early returns to flatten nested control flow.
+
+## Architecture
+
+- Prefer object-oriented design for non-trivial logic: classes own state and
+  the behavior that operates on it.
+- One clear responsibility per class. Keep public surface small.
+- Prefer composition over inheritance.
+- Pass dependencies via the constructor; avoid module-level globals.
+- Use `@dataclass` for value objects; regular classes when behavior matters.
+- Top-level scripts stay thin (`main()` + argparse) and delegate to classes.
+
+## Typing
+
+- Type-hint every public function, method, and return value.
+- Avoid `Any`; when unavoidable, justify with a one-line comment.
+- Prefer narrow concrete types over broad unions.
+
+## Error handling
+
+- Raise specific exception types with actionable messages.
+- Never use bare `except:` or unconditional `except Exception:`.
+- Validate inputs at system boundaries; trust them inside.
+
+## Tests
+
+- Update or add tests when behavior changes.
+- Test conventions live in the `python-tests` rule, scoped to test files.

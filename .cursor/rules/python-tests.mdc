@@ -1,0 +1,49 @@
+---
+description: Testing standards for Python test files (pytest, fixtures, regression coverage, determinism).
+globs: "**/tests/**/*.py"
+alwaysApply: false
+---
+
+# Python Test Guardrails
+
+These guardrails apply to test files only. They extend the core `python` rule
+with conventions specific to writing tests.
+
+## Framework and structure
+
+- Use pytest; do not mix in `unittest.TestCase` style unless the codebase
+  already does so.
+- Structure each test as Arrange / Act / Assert, with a blank line between
+  sections so the shape is visible at a glance.
+- One behavior per test. The test name describes the behavior in plain
+  language: `test_loader_raises_when_file_missing`, not `test_loader_2`.
+
+## Fixtures and setup
+
+- Prefer pytest fixtures for shared setup over duplicated setup blocks.
+- Keep fixtures narrow; a fixture that does five things is a code smell.
+- Place reusable fixtures in `conftest.py` at the appropriate scope.
+
+## Coverage and regression
+
+- Add a regression test for every bug fix; it should fail on the broken code
+  and pass on the fix.
+- Cover edge cases: empty input, single-element input, boundary values, and
+  the documented failure paths.
+- Tests assert on observable behavior, not on internal call sequences, unless
+  the call sequence is the contract.
+
+## Determinism and isolation
+
+- Tests are deterministic: no real network, no real clock unless frozen, no
+  reliance on filesystem state outside `tmp_path`.
+- Use `monkeypatch`, `tmp_path`, and explicit dependency injection rather than
+  global state.
+- Tests must be independent of one another and of execution order.
+
+## Quality
+
+- Tests are code too: same typing, naming, and clarity standards as production
+  code.
+- Run `pylint` over the test directory; treat findings as blocking unless the
+  user has explicitly accepted a relaxed config for tests.
