@@ -1,4 +1,4 @@
-"""Sync CouchPilot v2 Cursor settings into the user-scope ``~/.cursor/`` directory.
+"""Sync CouchPilot Cursor settings into the user-scope ``~/.cursor/`` directory.
 
 Copies the curated ``.cursor/rules``, ``.cursor/skills``, and ``.cursor/agents``
 folders from this repository into the user's home ``~/.cursor/...`` directories
@@ -68,7 +68,7 @@ class CursorSync:
         if not (repo_root / ".cursor").is_dir():
             raise FileNotFoundError(
                 f"Repo root {repo_root} does not contain a .cursor directory; "
-                "make sure sync.py is run from inside CouchPilot_v2."
+                "make sure sync.py is run from the project root."
             )
         self._repo_root = repo_root
         self._user_home = user_home
@@ -130,7 +130,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     """Return the configured ``argparse.ArgumentParser`` for sync.py."""
     return argparse.ArgumentParser(
         description=(
-            "Sync CouchPilot v2 Cursor settings (rules, skills, agents) "
+            "Sync CouchPilot Cursor settings (rules, skills, agents) "
             "into the user-scope ~/.cursor/ so they apply globally."
         ),
     )

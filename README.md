@@ -1,4 +1,4 @@
-# CouchPilot v2
+# CouchPilot
 
 A small, opinionated set of Cursor settings (Rules, Skills, and Subagents)
 plus a single sync script. Clone the repo on any machine, run `sync.py`, and
@@ -18,7 +18,7 @@ project-scope sync.
 ## What you get
 
 ```
-CouchPilot_v2/
+CouchPilot/
   .cursor/
     rules/
       python.mdc                  # auto-applies on **/*.py
@@ -53,8 +53,8 @@ commands are available in every chat.
 ## Quick start
 
 ```bash
-git clone <this-repo> CouchPilot_v2
-cd CouchPilot_v2
+git clone <this-repo> CouchPilot
+cd CouchPilot
 python sync.py
 ```
 
@@ -105,9 +105,9 @@ or you see `(none)` — restart Cursor and try again.
 
 Two things to know about Cursor's rule injection:
 
-- Rules with `alwaysApply: true` are injected into every chat. v1's
-  rules used this; v2 does not.
-- Rules with `alwaysApply: false` and a `globs:` value (v2's
+- Rules with `alwaysApply: true` are injected into every chat. This
+  project intentionally does not use that mode for any of its rules.
+- Rules with `alwaysApply: false` and a `globs:` value (both
   `python.mdc` and `python-tests.mdc`) only attach when a file matching
   that glob is in the chat's context. If `python.mdc` is missing from
   the loaded list, the most likely cause is that no `*.py` file is open
@@ -286,9 +286,9 @@ skills named `<language>-style`. Non-language subagents follow the same
 role-name pattern (e.g. `/planner`, `/reviewer`) where the name describes
 the role specifically enough not to collide with everyday vocabulary.
 
-Resist the urge to add ten more skills or a meta-orchestrator. v1's main
-failure mode was conceptual sprawl. Keep this minimal until something
-concrete forces a change.
+Resist the urge to add ten more skills or a meta-orchestrator.
+Conceptual sprawl is the main failure mode of toolkits like this. Keep
+it minimal until something concrete forces a change.
 
 ## What this repo intentionally does not do
 
