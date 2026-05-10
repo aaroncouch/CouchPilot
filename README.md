@@ -8,10 +8,10 @@ for planning, coding, and review:
 | Subagent | When | Model | Mode |
 |---|---|---|---|
 | `/planner-codex` | Outcome-first planning for implementation tasks. | `gpt-5.3-codex` | scratch-only writer |
-| `/planner-gpt55` | Outcome-first planning tuned for GPT-5.5 behavior. | `gpt-5.5-medium` | scratch-only writer |
-| `/python-coder-composer` | Python implementation with inspect-first, bounded edits. | `composer-2-fast` | foreground or background |
+| `/planner-gpt55` | Outcome-first planning tuned for GPT-5.5 behavior. | `gpt-5.5` | scratch-only writer |
+| `/python-coder-composer` | Python implementation with inspect-first, bounded edits. | `composer-2` | foreground or background |
 | `/reviewer-codex` | Line-anchored review tuned for Codex. | `gpt-5.3-codex` | scratch-only writer, background |
-| `/reviewer-gpt55` | Risk-first review tuned for GPT-5.5. | `gpt-5.5-medium` | scratch-only writer, background |
+| `/reviewer-gpt55` | Risk-first review tuned for GPT-5.5. | `gpt-5.5` | scratch-only writer, background |
 
 Reusable command prompts are also included:
 - `/dispatch-subagent` (`.cursor/commands/dispatch-subagent.md`)
@@ -249,10 +249,10 @@ parent agent based on their `description:` field. They are bound to **tasks**.
 | Subagent | Role | Skill it consults | Model | Mode |
 |---|---|---|---|---|
 | `/planner-codex` | Produce a concrete plan; never writes code. | `python-style` (Python plans) | `gpt-5.3-codex` | scratch-only (prose-enforced) |
-| `/planner-gpt55` | Produce a concrete plan; never writes code. | `python-style` (Python plans) | `gpt-5.5-medium` | scratch-only (prose-enforced) |
-| `/python-coder-composer` | Execute Python changes in your style; inspect first, then implement. | `python-style` | `composer-2-fast` | foreground/background |
+| `/planner-gpt55` | Produce a concrete plan; never writes code. | `python-style` (Python plans) | `gpt-5.5` | scratch-only (prose-enforced) |
+| `/python-coder-composer` | Execute Python changes in your style; inspect first, then implement. | `python-style` | `composer-2` | foreground/background |
 | `/reviewer-codex` | Line-anchored critique of a diff; never edits code. | `python-style` (Python diffs) | `gpt-5.3-codex` | scratch-only (prose-enforced), background |
-| `/reviewer-gpt55` | Line-anchored critique of a diff; never edits code. | `python-style` (Python diffs) | `gpt-5.5-medium` | scratch-only (prose-enforced), background |
+| `/reviewer-gpt55` | Line-anchored critique of a diff; never edits code. | `python-style` (Python diffs) | `gpt-5.5` | scratch-only (prose-enforced), background |
 
 Each subagent body explicitly tells it which skill to read on entry. That is
 a workflow declaration, not a binding — the skill remains available to other
@@ -487,7 +487,7 @@ while coding uses a Composer-tuned variant. The reasoning:
   guidance rather than forcing one instruction style across all models.
 - **Flexibility.** You can choose Codex vs GPT-5.5 planning/review per task.
 
-`/python-coder-composer` ships with `model: composer-2-fast` for a stable,
+`/python-coder-composer` ships with `model: composer-2` for a stable,
 inspect-first coding workflow.
 
 If your Cursor exposes different slugs, edit each agent file's `model:` line

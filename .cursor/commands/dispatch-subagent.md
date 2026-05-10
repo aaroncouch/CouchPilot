@@ -35,7 +35,11 @@ When dispatching:
 - Pass only task-specific context.
 - Do not add extra headers like `Workspace` or `Context` unless they contain
   critical information not otherwise captured in sections above.
-- Return the subagent result as-is.
+- Do not paste or paraphrase the subagent's output in the parent thread.
+- After a successful dispatch, respond with exactly one line:
+  `Dispatched to /<subagent-name>.`
+- Only include additional parent-thread text when dispatch fails, required input
+  is missing, or the subagent reports a blocker that needs a user decision.
 
 If required task information is missing, ask one focused clarification question
 before dispatching.
