@@ -7,7 +7,8 @@ alwaysApply: false
 # Python Test Guardrails
 
 These guardrails apply to test files only. They extend the core `python` rule
-with conventions specific to writing tests.
+with conventions specific to writing tests. Cross-language anti-slop defaults
+are enforced globally by `code-quality.mdc`.
 
 ## Framework and structure
 
@@ -47,3 +48,4 @@ with conventions specific to writing tests.
   code.
 - Run `pylint` over the test directory; treat findings as blocking unless the
   user has explicitly accepted a relaxed config for tests.
+

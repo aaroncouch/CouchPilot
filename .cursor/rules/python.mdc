@@ -7,7 +7,8 @@ alwaysApply: false
 # Python Guardrails
 
 Short, always-on guardrails that fire whenever a `*.py` file is in scope. They
-are the condensed version of the `python-style` skill at
+complement the cross-language `code-quality.mdc` rule and are the condensed
+version of the `python-style` skill at
 `~/.cursor/skills/python-style/SKILL.md`. Read that skill for rationale and
 deeper reference.
 

@@ -2,16 +2,25 @@
 
 A small, opinionated set of Cursor settings (Rules, Skills, and Subagents)
 plus a single sync script. Clone the repo on any machine, run `sync.py`, and
-your **user-scope** Cursor configuration gains three slash-invokable
-subagents that work together as a tight loop:
+your **user-scope** Cursor configuration gains model-specific slash commands
+for planning, coding, and review:
 
 | Subagent | When | Model | Mode |
 |---|---|---|---|
-| `/planner` | Turn an ambiguous request into a concrete, file-level plan. | `gpt-5.5` | read-only |
-| `/python-coder` | Execute a planned change (or a small ad-hoc one) in Python, in your style. | `default` | foreground or background |
-| `/reviewer` | Critique a diff or set of changed files against your style standards. | `gpt-5.5` | read-only, background |
+| `/planner-codex` | Outcome-first planning for implementation tasks. | `gpt-5.3-codex` | scratch-only writer |
+| `/planner-gpt55` | Outcome-first planning tuned for GPT-5.5 behavior. | `gpt-5.5-medium` | scratch-only writer |
+| `/python-coder-composer` | Python implementation with inspect-first, bounded edits. | `composer-2-fast` | foreground or background |
+| `/reviewer-codex` | Line-anchored review tuned for Codex. | `gpt-5.3-codex` | scratch-only writer, background |
+| `/reviewer-gpt55` | Risk-first review tuned for GPT-5.5. | `gpt-5.5-medium` | scratch-only writer, background |
 
-Plus two glob-scoped Rules and one deep Skill that the coder and reviewer
+Reusable command prompts are also included:
+- `/dispatch-subagent` (`.cursor/commands/dispatch-subagent.md`)
+- `/begin-session` (`.cursor/commands/begin-session.md`)
+- `/end-session` (`.cursor/commands/end-session.md`)
+- `/deslop-main-diff` (`.cursor/commands/deslop-main-diff.md`) - optional cleanup pass for slop introduced in this branch (diff vs `main`)
+- `/deslop-workspace` (`.cursor/commands/deslop-workspace.md`) - optional workspace-wide slop cleanup pass (not scoped by `git diff main`)
+
+Plus three Rules (one global, two Python-scoped) and one short Skill that the coder and reviewer
 read on entry. No CLI to learn, no pipeline, no memory system, no
 project-scope sync.
 
@@ -21,14 +30,23 @@ project-scope sync.
 CouchPilot/
   .cursor/
     rules/
+      code-quality.mdc            # always applies (cross-language anti-slop defaults)
       python.mdc                  # auto-applies on **/*.py
       python-tests.mdc            # auto-applies on **/tests/**/*.py
     skills/
-      python-style/SKILL.md       # the deep "code the way I write code" reference
+      python-style/SKILL.md       # short complement to code-quality.mdc + python.mdc (docs, anti-patterns, reporting)
     agents/
-      planner.md                  # invoked via /planner <task>
-      python-coder.md             # invoked via /python-coder <task>
-      reviewer.md                 # invoked via /reviewer <task>
+      planner-codex.md            # invoked via /planner-codex <task>
+      planner-gpt55.md            # invoked via /planner-gpt55 <task>
+      python-coder-composer.md    # invoked via /python-coder-composer <task>
+      reviewer-codex.md           # invoked via /reviewer-codex <task>
+      reviewer-gpt55.md           # invoked via /reviewer-gpt55 <task>
+    commands/
+      dispatch-subagent.md        # invoked via /dispatch-subagent <target + task>
+      begin-session.md            # invoked via /begin-session task: <id> <description>
+      end-session.md              # invoked via /end-session task: <id>
+      deslop-main-diff.md         # invoked via /deslop-main-diff
+      deslop-workspace.md         # invoked via /deslop-workspace
   sync.py                         # stdlib-only, cross-platform, user-scope only
   README.md
   .gitignore
@@ -38,17 +56,24 @@ After running `sync.py`, the same files land in your home directory:
 
 ```
 ~/.cursor/
+  rules/code-quality.mdc
   rules/python.mdc
   rules/python-tests.mdc
   skills/python-style/SKILL.md
-  agents/planner.md
-  agents/python-coder.md
-  agents/reviewer.md
+  agents/planner-codex.md
+  agents/planner-gpt55.md
+  agents/python-coder-composer.md
+  agents/reviewer-codex.md
+  agents/reviewer-gpt55.md
+  commands/dispatch-subagent.md
+  commands/begin-session.md
+  commands/end-session.md
+  commands/deslop-main-diff.md
+  commands/deslop-workspace.md
 ```
 
 Cursor reads from those locations on every workspace, so the rules apply
-globally, the skill is auto-discovered by description, and all three slash
-commands are available in every chat.
+globally and these model-specific slash commands are available in every chat.
 
 ## Quick start
 
@@ -58,14 +83,46 @@ cd CouchPilot
 python sync.py
 ```
 
-That's it. Open any Python project in Cursor and use the three subagents
-as a workflow loop:
+That's it. Open any Python project in Cursor and use this workflow loop:
 
 ```
-/planner add a Loader class that reads bar.json and exposes get(key) with caching
-/python-coder execute the plan above
-/reviewer review the changes I just made
+/planner-codex task: feat-foo-module add a Foo class that reads foo.json and exposes get(key) with caching
+/python-coder-composer task: feat-foo-module execute the plan above
+/reviewer-gpt55 task: feat-foo-module review the changes I just made
 ```
+
+### Dispatch command example
+
+Use `/dispatch-subagent` when you want the main thread to delegate with a
+minimal, task-focused handoff:
+
+```text
+/dispatch-subagent /python-coder-composer task: feat-foo-module resolve reviewer findings above
+```
+
+You can swap the target for planner or reviewer variants:
+
+```text
+/dispatch-subagent /planner-codex task: feat-foo-module plan the implementation
+/dispatch-subagent /reviewer-gpt55 task: feat-foo-module review the latest diff
+```
+
+### Session lifecycle commands
+
+Start or switch task context explicitly before subagent work:
+
+```text
+/begin-session task: feat-foo-module implement foo workflow plan
+```
+
+Close and archive a finished task session:
+
+```text
+/end-session task: feat-foo-module completed and merged
+```
+
+`/end-session` moves the task file to `session-archive/` and clears the active
+pointer.
 
 Re-run `sync.py` whenever you update rules, the skill, or the subagents
 here. The script is idempotent: it reports each file as `copy`, `overwrite`,
@@ -90,16 +147,22 @@ can't miss it.
 
 ### Verifying the cache refreshed
 
-Each subagent (`/planner`, `/python-coder`, `/reviewer`) is instructed
+Each subagent (`/planner-codex`, `/planner-gpt55`, `/python-coder-composer`, `/reviewer-codex`, `/reviewer-gpt55`) is instructed
 to declare its loaded context as the very first thing it does, before
 any other work. The line looks like:
 
 ```
-Loaded: rules = python.mdc, python-tests.mdc; skills = python-style
+Loaded: rules = code-quality.mdc, python.mdc, python-tests.mdc; skills = python-style
 ```
 
 If the subagent reports that an expected rule or skill is missing —
 or you see `(none)` — restart Cursor and try again.
+
+As of this version, the subagents are also instructed to resolve rules
+from disk (not only injected context): workspace `.cursor/rules/*.mdc`,
+then user-scope `~/.cursor/rules/*.mdc`, plus any user-level rule paths
+configured in Cursor settings. This prevents false "missing rule" reports
+when the active workspace has no local `.cursor/rules/` folder.
 
 ### Why a rule might still not appear
 
@@ -107,29 +170,42 @@ Two things to know about Cursor's rule injection:
 
 - Rules with `alwaysApply: true` are injected into every chat. This
   project intentionally does not use that mode for any of its rules.
-- Rules with `alwaysApply: false` and a `globs:` value (both
-  `python.mdc` and `python-tests.mdc`) only attach when a file matching
-  that glob is in the chat's context. If `python.mdc` is missing from
-  the loaded list, the most likely cause is that no `*.py` file is open
-  or attached. Open one, then re-invoke the subagent.
+- `code-quality.mdc` uses `alwaysApply: true`, so it should appear in every
+  coding session.
+- Rules with `alwaysApply: false` and a `globs:` value (`python.mdc` and
+  `python-tests.mdc`) only attach when a file matching that glob is in the
+  chat's context. If `python.mdc` is missing from the loaded list, the most
+  likely cause is that no `*.py` file is open or attached. Open one, then
+  re-invoke the subagent.
 
-## The three concepts
+## The four concepts
 
-The whole project is built on three Cursor primitives. If you remember
+The whole project is built on four Cursor primitives. If you remember
 nothing else, remember these:
 
 ```mermaid
 flowchart TD
-  user["You"] -->|"/planner &lt;task&gt;"| plan["Subagent: planner"]
-  user -->|"/python-coder &lt;task&gt;"| code["Subagent: python-coder"]
-  user -->|"/reviewer &lt;task&gt;"| review["Subagent: reviewer"]
+  start["Start work"] --> begin["/begin-session &lt;task&gt;"]
+  begin --> pointer["active-session.txt"]
+  begin --> session["Session file in .cursor/scratch/sessions/"]
+  begin --> plan["/planner-codex or /planner-gpt55"]
+  plan --> code["/python-coder-composer"]
+  code --> review["/reviewer-codex or /reviewer-gpt55"]
+  review --> iterate{"More changes needed?"}
+  iterate -- yes --> code
+  iterate -- no --> endcmd["/end-session &lt;task&gt;"]
   plan -.->|"plan hands off to"| code
   code -.->|"changes can be sent to"| review
+  plan -->|"reads/writes active task via pointer"| session
+  code -->|"reads/writes active task via pointer"| session
+  review -->|"reads/writes active task via pointer"| session
   code -->|"reads on entry"| skill["Skill: python-style"]
   review -->|"reads when Python is in scope"| skill
   code -->|"edits .py files"| files["Python source"]
-  files -->|"glob match"| rules["Rules: python.mdc, python-tests.mdc"]
+  files -->|"glob match"| rules["Rules: code-quality.mdc, python.mdc, python-tests.mdc"]
   rules -.->|"injected as guardrails"| code
+  endcmd --> archive["session-archive/"]
+  endcmd --> pointer
 ```
 
 ### Rules (`~/.cursor/rules/*.mdc`)
@@ -138,6 +214,9 @@ Short, declarative guardrails that Cursor injects automatically when files
 match a glob. Think: "what every agent must remember while editing this kind
 of file." They are bound to **files**, not to subagents.
 
+- `code-quality.mdc` applies globally (`alwaysApply: true`) and carries
+  cross-language anti-slop defaults (minimal, idiomatic changes; no noisy
+  comments; no speculative defensive branches; no type-escape shortcuts).
 - `python.mdc` fires on every `*.py` file. It enforces formatting, typing,
   OOP preference, explicit errors, **and carries the concrete tooling
   baseline values** (line length 100, target py311, max-args 8, max-branches
@@ -156,8 +235,8 @@ frontmatter and deciding it is relevant. Skills are bound to **descriptions**,
 not to subagents.
 
 In this repo there is one skill, `python-style`, which is the authoritative
-"code the way I write code" document. The `/python-coder` subagent reads it
-on entry; `/reviewer` reads it when reviewing Python; **any agent** Cursor
+"code the way I write code" document. The `/python-coder-composer` subagent reads it
+on entry; reviewer variants read it when reviewing Python; **any agent** Cursor
 decides is relevant can also pick it up. The skill is reusable and not
 "owned" by any one subagent.
 
@@ -169,27 +248,29 @@ parent agent based on their `description:` field. They are bound to **tasks**.
 
 | Subagent | Role | Skill it consults | Model | Mode |
 |---|---|---|---|---|
-| `/planner` | Produce a concrete plan; never writes code. | `python-style` (Python plans) | `gpt-5.5` | `readonly: true` |
-| `/python-coder` | Execute Python changes in your style; runs `black` + `pylint`. | `python-style` | `default` | `is_background: true` |
-| `/reviewer` | Line-anchored critique of a diff; never edits. | `python-style` (Python diffs) | `gpt-5.5` | `readonly: true`, `is_background: true` |
+| `/planner-codex` | Produce a concrete plan; never writes code. | `python-style` (Python plans) | `gpt-5.3-codex` | scratch-only (prose-enforced) |
+| `/planner-gpt55` | Produce a concrete plan; never writes code. | `python-style` (Python plans) | `gpt-5.5-medium` | scratch-only (prose-enforced) |
+| `/python-coder-composer` | Execute Python changes in your style; inspect first, then implement. | `python-style` | `composer-2-fast` | foreground/background |
+| `/reviewer-codex` | Line-anchored critique of a diff; never edits code. | `python-style` (Python diffs) | `gpt-5.3-codex` | scratch-only (prose-enforced), background |
+| `/reviewer-gpt55` | Line-anchored critique of a diff; never edits code. | `python-style` (Python diffs) | `gpt-5.5-medium` | scratch-only (prose-enforced), background |
 
 Each subagent body explicitly tells it which skill to read on entry. That is
 a workflow declaration, not a binding — the skill remains available to other
 agents Cursor judges relevant.
 
-> **Naming note:** subagent names are intentionally specific (`python-coder`,
+> **Naming note:** subagent names are intentionally specific (`python-coder-composer`,
 > not `python`) for two reasons:
 >
 > 1. Cursor surfaces both skills and subagents at `/<name>`, so giving them
 >    the same name causes routing ambiguity.
 > 2. Cursor can also auto-delegate to a subagent based on its description.
 >    A subagent named `python` is at risk of being auto-invoked any time a
->    user mentions "python" in casual conversation. `python-coder` is
+>    user mentions "python" in casual conversation. `python-coder-composer` is
 >    unambiguous: it produces or edits Python code, full stop. Each
 >    subagent's description further reinforces "do not delegate for
 >    unrelated work."
 
-### Why three things instead of one
+### Why four things instead of one
 
 Each primitive solves a different problem:
 
@@ -202,44 +283,112 @@ Each primitive solves a different problem:
 - **Subagents** are personas. Use them when you want a specific *workflow*
   (read skill, do work, report) on demand via a slash command, with its own
   model setting.
+- **Commands** are explicit operators. Use `/begin-session` and `/end-session`
+  to control session lifecycle, and `/dispatch-subagent` to enforce minimal,
+  task-focused delegation format.
 
 Think of it as: rules are reflexes, skills are reference manuals, subagents
-are coworkers with a defined job description and a preferred model.
+are coworkers with defined jobs, and commands are explicit controls for how
+work is started, delegated, and closed.
 
 ## Daily workflow
 
-The three subagents are designed as a loop:
+The planning/coding/review loop is tied together by a single
+shared task ID. You pass the task ID to every subagent invocation as
+`task: <kebab-case-slug>` near the start of the slash command. Subagents read
+task context from an explicit active-session pointer and task-scoped files.
+Session lifecycle is explicit: start with `/begin-session`, finish with
+`/end-session`.
 
-1. **Plan** the change.
-   `/planner add a Loader class that reads bar.json and exposes get(key)`
-   You get back a structured plan with goal, decisions, file-level changes,
-   tests, risks, and a handoff line.
+For main-thread orchestration, use `/dispatch-subagent` in each step below.
+Each step includes both direct invocation and explicit dispatch form. Keep the
+same `task: <slug>` in dispatched requests.
 
-2. **Implement** it.
-   `/python-coder execute the plan above`
-   The coder reads `python-style`, resolves the project's quality tooling
-   (`make lint` / `ruff` / `pylint` / etc., per skill section 11), runs
-   it, and reports the actual results. On the first run in a new project
-   it caches its tooling discovery to `.cursor/scratch/tooling.md` so
-   future runs are fast; the cache self-invalidates via fingerprint
-   whenever any tooling config file changes.
+1. **Begin** the task session.
 
-3. **Review** the diff (optional but recommended for non-trivial changes).
-   `/reviewer review the changes from the previous step`
-   You get line-anchored findings grouped by file, with a verdict. The
-   reviewer is read-only and does not run any tools — it critiques what
-   you wrote against your style standards. Tool-running stays the coder's
-   job.
+   ```
+   /begin-session task: feat-foo-module implement foo workflow plan
+   ```
 
-4. **Iterate** if the reviewer requests changes; loop back to step 2.
+   This creates/reuses the canonical task session file and sets
+   `.cursor/scratch/active-session.txt`.
 
-You can also use any one subagent on its own — quick edits go straight to
-`/python-coder`, ad-hoc reviews go straight to `/reviewer`, big-picture
-questions go to `/planner` without committing to implement.
+2. **Plan** the change.
+
+   ```
+   /dispatch-subagent /planner-codex task: feat-foo-module — add a Foo class that reads foo.json and exposes get(key)
+   ```
+
+   You get back a structured plan in chat. Planner updates the active
+   task session file selected by `/begin-session`.
+
+   Direct invocation (optional):
+   ```
+   /planner-codex task: feat-foo-module plan the implementation
+   ```
+
+3. **Implement** it.
+
+   ```
+   /dispatch-subagent /python-coder-composer task: feat-foo-module execute the approved plan
+   ```
+
+   The coder reads the active task session file, finds the matching plan, implements,
+   resolves the project's quality tooling (`make lint` / `ruff` /
+   `pylint` / etc., per the discovery procedure in
+   `~/.cursor/agents/python-coder-composer.md`), runs the gates, and reports
+   the actual results. It also appends an iteration log entry to
+   the session iteration log listing files touched and gate results.
+
+   Direct invocation (optional):
+   ```
+   /python-coder-composer task: feat-foo-module execute the plan
+   ```
+
+4. **Review** the diff (optional but recommended for non-trivial changes).
+
+   ```
+   /dispatch-subagent /reviewer-codex task: feat-foo-module review the latest diff
+   ```
+
+   The reviewer reads the active task session file and uses its iteration log to scope
+   `git diff` to the files the coder actually touched. It writes
+   line-anchored findings into the session file's `# Findings` section and
+   prints them in chat. The reviewer does not edit code or
+   run any tools.
+
+   Direct invocation (optional):
+   ```
+   /reviewer-codex task: feat-foo-module review the changes
+   ```
+
+5. **Iterate** if the reviewer requests changes:
+
+   ```
+   /dispatch-subagent /python-coder-composer task: feat-foo-module address review findings
+   ```
+
+   The coder reads the latest Findings from the active task session file, fixes them,
+   reports a "Findings addressed" map, and logs another iteration.
+   Loop back to step 3 if needed.
+
+   Direct invocation (optional):
+   ```
+   /python-coder-composer task: feat-foo-module address the review findings
+   ```
+
+6. **End** the task session when complete.
+
+   ```
+   /end-session task: feat-foo-module completed and merged
+   ```
+
+You can also use any one subagent on its own, but they still expect an active
+session pointer from `/begin-session` unless you explicitly confirm ad-hoc mode.
 
 ### About `.cursor/scratch/tooling.md`
 
-The first time `/python-coder` runs in an external project, it creates
+The first time `/python-coder-composer` runs in an external project, it creates
 `.cursor/scratch/tooling.md` (a per-project cache of which formatter,
 linter, type-checker, and test command the project actually uses) and a
 self-contained `.cursor/scratch/.gitignore` that prevents the cache from
@@ -249,22 +398,100 @@ edits the `Makefile` or swaps `pylint` for `ruff`), the next coder
 invocation detects the fingerprint mismatch and re-discovers
 automatically.
 
-## Why the planner and reviewer use a stronger model
+### About `.cursor/scratch/sessions/*.md` and `active-session.txt`
 
-`/planner` and `/reviewer` both ship with `model: gpt-5.5` (or whichever
-high-intelligence slug your Cursor version exposes). The reasoning:
+Cursor subagents are stateless one-shots: each invocation starts with a
+fresh context and does not see the parent chat or prior subagent runs.
+To bridge that gap without third-party memory tools, this project uses
+task-scoped scratch files as canonical handoff records, selected by an explicit
+active pointer.
 
-- **Planning** benefits from strong reasoning over many trade-offs at once.
-- **Review** benefits from cross-checking the coder. If `default` writes
-  the code and `default` reviews it, both share the same blind spots.
-  A different (and stronger) model on review catches what the coder missed.
+- Canonical session: `.cursor/scratch/sessions/<task_id>__<sanitized-branch>__<git-short-sha>.md`
+- Active pointer: `.cursor/scratch/active-session.txt`
 
-`/python-coder` ships with `model: default` so Cursor picks the appropriate
-coding model for each invocation.
+**The schema** (created by planner variants, read by planner/reviewer/coder
+variants):
 
-If your Cursor accepts a different slug (e.g. `claude-opus-4`,
-`claude-3-opus`), edit the `model:` line in the corresponding agent file
-in this repo and re-run `python sync.py`.
+```
+---
+task_id: feat-foo-module
+started_at: 2026-05-10T04:02:00-04:00
+last_updated: 2026-05-10T04:15:00-04:00
+last_agent: python-coder-composer
+status: in-progress
+git_ref: feature/p1-03@a1b2c3d
+---
+
+# Task
+<one-line task statement>
+
+# Plan
+<structured plan from planner variant; may have v2, v3 sections on iteration>
+
+# Findings
+<reviewer variant overwrites this each review run>
+
+# Project notes
+<agents append discovered conventions; do not paste source>
+
+# Iteration log
+- <ISO8601> [planner]      Plan v1 written.
+- <ISO8601> [python-coder-composer] Implemented Foo module.
+  files_touched: src/foo/loader.py, tests/unit/test_loader.py
+  gates: pylint clean, pytest 5/5 pass
+- <ISO8601> [reviewer]     request changes — 2 blocking, 1 suggestion
+```
+
+**Lifecycle rules:**
+
+- **No automatic archive/discard/switching.** Session changes are explicit via
+  `/begin-session` and `/end-session`.
+- **Planner updates plan sections.** On RESUME it appends `v2`, `v3`, etc.; on
+  REPLACE it rewrites the plan section.
+- **Coder appends.** Each implementation run adds an iteration log
+  entry and may append to Project notes. It never overwrites existing
+  sections.
+- **Reviewer overwrites Findings, appends a log entry.** Findings
+  always reflect the most recent review; we do not accumulate stale
+  ones. The iteration log preserves history.
+- **`tooling.md`, `active-session.txt`, and `sessions/*.md` are gitignored** by the
+  self-contained `.cursor/scratch/.gitignore` that the agents
+  auto-create. Nothing in `.cursor/scratch/` ever gets committed to the
+  target project.
+
+**What this is and isn't:**
+
+- It IS a token-saving handoff between successive subagent runs:
+  reviewer findings flow to coder without the user copy-pasting, plans
+  flow to coder the same way, and project conventions discovered
+  during one iteration are available to the next.
+- It IS NOT vector memory, semantic search, or cross-task memory. One
+  task at a time, plain markdown.
+- Cursor's parent chat still doesn't share state with subagents. Session files
+  bridge subagent runs. If you want the parent chat to see the same context,
+  paste the relevant section of the active task session file
+  into the chat manually — there is no automatic propagation.
+
+**Forgotten task ID:** if you invoke a subagent without `task: <slug>`,
+the agent will flag the missing or mismatched task ID and ask before
+proceeding rather than silently use the wrong context.
+
+## Why we ship model-specific variants
+
+Planner and reviewer prompts are provided in both Codex and GPT-5.5 variants,
+while coding uses a Composer-tuned variant. The reasoning:
+
+- **Cross-checking implementation.** Planning/review on models different from
+  the coding model can catch blind spots.
+- **Prompt specialization.** Each variant is tuned to the model's prompt
+  guidance rather than forcing one instruction style across all models.
+- **Flexibility.** You can choose Codex vs GPT-5.5 planning/review per task.
+
+`/python-coder-composer` ships with `model: composer-2-fast` for a stable,
+inspect-first coding workflow.
+
+If your Cursor exposes different slugs, edit each agent file's `model:` line
+and re-run `python sync.py`.
 
 ## Extending it
 
@@ -276,14 +503,16 @@ TypeScript coder:
 2. Add `.cursor/skills/typescript-style/SKILL.md` (descriptive name, not
    `typescript`, to avoid colliding with the subagent slash command).
 3. Add `.cursor/agents/typescript-coder.md` (so `/typescript-coder` is
-   invokable). Use `model: default` for coding (so Cursor picks the right
-   coding model) and `model: gpt-5.5` (or your Cursor's strongest slug)
-   for any planner/reviewer subagents you add alongside it.
+   invokable). Use `model: default` for coding (so Cursor picks the
+   right coding model). For any planner/reviewer subagents you add
+   alongside it, prefer a code-tuned but cost-aware model like
+   `gpt-5.3-codex` (or whatever your Cursor exposes that fits the same
+   tradeoff).
 4. Re-run `sync.py`.
 
 The naming convention is `<language>-coder` for coding subagents, with
 skills named `<language>-style`. Non-language subagents follow the same
-role-name pattern (e.g. `/planner`, `/reviewer`) where the name describes
+role-name pattern (e.g. `/planner-codex`, `/reviewer-codex`) where the name describes
 the role specifically enough not to collide with everyday vocabulary.
 
 Resist the urge to add ten more skills or a meta-orchestrator.
@@ -298,7 +527,7 @@ it minimal until something concrete forces a change.
 - No pipeline, learning cache, or "foundation validator."
 - No persistent memory or `~/.cursor/agent-memory/` integration.
 - No `.couchpilot/tasks/` workspace.
-- No subagents beyond `/planner`, `/python-coder`, and `/reviewer`.
+- No subagents beyond the current model-specific planner/reviewer/coder set.
 - No `.pylintrc` or `pyproject.toml` templates shipped to target projects;
   the concrete values live in the `python` rule instead.
 

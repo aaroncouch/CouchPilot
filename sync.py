@@ -1,6 +1,7 @@
 """Sync CouchPilot Cursor settings into the user-scope ``~/.cursor/`` directory.
 
-Copies the curated ``.cursor/rules``, ``.cursor/skills``, and ``.cursor/agents``
+Copies the curated ``.cursor/rules``, ``.cursor/skills``, ``.cursor/agents``,
+and ``.cursor/commands``
 folders from this repository into the user's home ``~/.cursor/...`` directories
 so they apply globally to every Cursor workspace on this machine.
 
@@ -18,7 +19,7 @@ from enum import Enum
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
-CURSOR_SUBDIRS = ("rules", "skills", "agents")
+CURSOR_SUBDIRS = ("rules", "skills", "agents", "commands")
 HASH_CHUNK_BYTES = 65536
 
 
@@ -81,7 +82,7 @@ class CursorSync:
         return self._report
 
     def run(self) -> None:
-        """Copy ``.cursor/{rules,skills,agents}`` into ``<user_home>/.cursor/``."""
+        """Copy ``.cursor/{rules,skills,agents,commands}`` into ``<user_home>/.cursor/``."""
         for subdir in CURSOR_SUBDIRS:
             source_dir = self._repo_root / ".cursor" / subdir
             destination_dir = self._user_home / ".cursor" / subdir
@@ -131,7 +132,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     return argparse.ArgumentParser(
         description=(
             "Sync CouchPilot Cursor settings (rules, skills, agents) "
-            "into the user-scope ~/.cursor/ so they apply globally."
+            "including commands into the user-scope ~/.cursor/ so they apply globally."
         ),
     )
 
@@ -164,14 +165,15 @@ def _print_session_cache_notice() -> None:
     divider = "-" * 70
     print()
     print(divider)
-    print("Heads up: Cursor caches user-scope rules, skills, and subagents")
+    print("Heads up: Cursor caches user-scope rules, skills, subagents, and commands")
     print("per chat session. The files above are on disk, but any open chat")
     print("(and possibly the running IDE) may still hold the previous")
     print("snapshot. To guarantee the new content is picked up:")
     print()
     print("  1. Restart Cursor (recommended), or at minimum open a fresh")
     print("     chat in a new window.")
-    print("  2. Ask any subagent (`/planner`, `/python-coder`, `/reviewer`)")
+    print("  2. Ask any synced subagent (`/planner-codex`, `/planner-gpt55`,")
+    print("     `/python-coder-composer`, `/reviewer-codex`, `/reviewer-gpt55`)")
     print("     what rules and skills it sees on entry - each one is")
     print("     instructed to declare its loaded context before doing work.")
     print()
