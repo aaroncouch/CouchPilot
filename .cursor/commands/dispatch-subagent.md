@@ -26,6 +26,8 @@ Build the delegated prompt using only these sections:
 Do not include generic workflow scaffolding already owned by the target
 subagent (for example: inspect-first reminders, session-file mechanics,
 tooling discovery procedures, preamble policies, or loaded-context boilerplate).
+Loaded-context announcements are owned by the global
+`subagent-loaded-context.mdc` rule, not by this dispatch prompt.
 
 ## Output Contract
 
