@@ -49,11 +49,14 @@ git_ref: <branch>@<short-sha>
 # Plan
 (planner fills this in)
 
+# Implementation notes
+(coder appends changed files, validation results, blockers, and slice completion notes)
+
 # Findings
 (reviewer fills this in)
 
 # Project notes
-(agents append conventions/locations)
+(agents append durable conventions/locations)
 
 # Iteration log
 - <ISO8601> [begin-session] Session started.

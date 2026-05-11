@@ -272,6 +272,15 @@ handoff record.
 - Task notes: `.cursor/scratch/sessions/*.md`
 - Tooling cache: `.cursor/scratch/tooling.md`
 
+**Workflow ownership:** slash commands own orchestration and pointer changes. In
+particular, `/begin-session` creates the session scaffold, maintains
+`.cursor/scratch/active-session.txt`, and ensures scratch is ignored by git.
+Subagents read the pointer only to locate the active session file; they do not
+edit the pointer or recreate session infrastructure. Within the session file,
+planners write `# Plan`, coders append to `# Implementation notes`, `# Iteration
+log`, and `# Project notes`, and reviewers write `# Findings` (and may append a
+line to `# Iteration log`).
+
 The Python coder may create `.cursor/scratch/tooling.md` in a target project to
 remember the formatter, linter, type checker, and test command it discovered.
 `/begin-session` keeps `.cursor/scratch/` ignored by the target repo, and the

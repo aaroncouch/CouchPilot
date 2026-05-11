@@ -3,6 +3,12 @@
 Delegate exactly one task to a specific subagent with a minimal, task-specific
 handoff prompt.
 
+## Ownership (workflow vs specialist work)
+
+This command owns orchestration for a single dispatch: reading planner recommendations when present, choosing the actual subagent route with the operator, passing only the minimum required context, enforcing slice boundaries, and deciding whether to proceed to the next slice or require final review. Planners may recommend routes; this command (or the operator) approves execution.
+
+Subagents own only their narrow role. They must not create or switch sessions, modify `.cursor/scratch/active-session.txt`, or duplicate `/begin-session` setup.
+
 ## Usage
 
 `/dispatch-subagent /<subagent-name> <task request>`
