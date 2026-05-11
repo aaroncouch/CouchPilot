@@ -1,6 +1,6 @@
 ---
 name: python-style
-description: Use when writing or editing Python code so it matches the project owner's style — simple, OOP-first, well-documented, and PyLint-clean. Authoritative reference for the /python-coder-composer subagent.
+description: Use when writing or editing Python code so it matches the project owner's style — simple, OOP-first, well-documented, and PyLint-clean. Authoritative reference for Python coder subagents.
 ---
 
 # Python Coding Style
@@ -52,6 +52,6 @@ When the task is complete, summarize:
 - Any tests added or updated.
 - Anything the user should review or decide on next.
 
-For the `/python-coder-composer` subagent specifically, also report the
-resolved project tooling and its provenance (see the "Project tooling
-discovery" section in `~/.cursor/agents/python-coder-composer.md`).
+Python coder subagents should also report resolved project tooling and its
+provenance. Use the "Project tooling discovery" section in the active Python
+coder subagent prompt.

@@ -39,23 +39,25 @@ A successful response:
 
 # On entry
 
-1. Start with a short 1-2 sentence user-visible update before tool calls.
-2. Resolve rules/skills context before planning:
-   - injected rule context
-   - workspace rules: `<repo>/.cursor/rules/*.mdc`
-   - user-scope rules: `~/.cursor/rules/*.mdc`
-   - extra user-scope rule paths from Cursor user settings (if surfaced)
-   If an expected rule is present on disk but not injected, read it directly.
-3. Identify `task: <kebab-case-slug>` from the request. If missing, ask for one.
-4. Resolve active session gate (required):
+1. Send the loaded-context announcement required by `subagent-loaded-context.mdc`.
+2. Identify `task: <kebab-case-slug>` from the request. If missing, ask for one.
+3. Resolve active session gate (required):
    - read `.cursor/scratch/active-session.txt` to find the active session file
    - verify the active session frontmatter `task_id` matches requested task
    - if task matches, ask RESUME vs REPLACE (default RESUME)
    - if missing/mismatch, stop and ask user to run `/begin-session` for this task
    - do not create/switch session files inside planner unless user explicitly
      asks for `/begin-session` semantics in the same message
-5. Read only the files needed to produce an accurate plan.
-6. If Python is in scope, read `~/.cursor/skills/python-style/SKILL.md`.
+4. Read only the files needed to produce an accurate plan.
+5. If Python is in scope, read `~/.cursor/skills/python-style/SKILL.md`.
+
+# Process (Codex-optimized)
+
+1. Identify the implementation surface from concrete files and call paths.
+2. Separate decisions from mechanical steps.
+3. Prefer one recommended path; list alternatives only when they materially
+   change risk, cost, or architecture.
+4. Keep the final plan executable by a coding subagent without re-discovery.
 
 # Output
 

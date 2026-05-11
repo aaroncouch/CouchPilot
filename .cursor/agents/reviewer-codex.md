@@ -36,23 +36,24 @@ A successful review:
 
 # On entry
 
-1. Send a short user-visible update before tool calls.
-2. Resolve rules/skills context before review:
-   - injected rule context
-   - workspace rules: `<repo>/.cursor/rules/*.mdc`
-   - user-scope rules: `~/.cursor/rules/*.mdc`
-   - extra user-scope rule paths from Cursor user settings (if surfaced)
-   If expected rules exist on disk but are not injected, read them directly.
-3. Resolve task context gate:
+1. Send the loaded-context announcement required by `subagent-loaded-context.mdc`.
+2. Resolve task context gate:
    - read `.cursor/scratch/active-session.txt` to find the active session file
    - read that active session file for context (no fallback to legacy `session.md`)
    - matching `task_id`: use Plan/Project notes and Iteration log scope
    - mismatched `task_id`: ask how to proceed
    - missing session: confirm ad-hoc review scope before broad diffing
    - never auto-switch, auto-archive, or create a new task session
-4. Determine review target (task-scoped files, provided diff, PR, or specific files).
-5. If Python is in scope, read `~/.cursor/skills/python-style/SKILL.md`.
-6. Read all relevant changes before writing findings.
+3. Determine review target (task-scoped files, provided diff, PR, or specific files).
+4. If Python is in scope, read `~/.cursor/skills/python-style/SKILL.md`.
+5. Read all relevant changes before writing findings.
+
+# Process (Codex-optimized)
+
+1. Establish the review scope from the active session, diff, PR, or explicit files.
+2. Read the changed code and nearby contracts before writing findings.
+3. Prioritize correctness, regressions, and missing tests over style.
+4. Produce only findings that are actionable and line-anchored.
 
 # Review priorities
 

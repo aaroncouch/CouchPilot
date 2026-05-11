@@ -25,5 +25,6 @@ Thumbs.db
 .idea/
 *.swp
 
-# Local session archive (not project source)
+# Local CouchPilot scratch state (not project source)
+.cursor/scratch/
 session-archive/

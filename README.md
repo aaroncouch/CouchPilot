@@ -19,9 +19,9 @@ Then restart Cursor, open a Python project, and use the loop:
 
 ```text
 /begin-session task: feat-foo-module implement foo workflow
-/dispatch-subagent /planner-codex task: feat-foo-module plan the implementation
+/dispatch-subagent /planner-composer task: feat-foo-module plan the implementation
 /dispatch-subagent /python-coder-composer task: feat-foo-module execute the plan
-/dispatch-subagent /reviewer-gpt55 task: feat-foo-module review the changes
+/dispatch-subagent /reviewer-codex task: feat-foo-module review the changes
 /end-session task: feat-foo-module completed
 ```
 
@@ -55,9 +55,12 @@ CouchPilot/
     skills/
       python-style/SKILL.md
     agents/
+      planner-composer.md
       planner-codex.md
       planner-gpt55.md
+      python-coder-codex.md
       python-coder-composer.md
+      reviewer-composer.md
       reviewer-codex.md
       reviewer-gpt55.md
     commands/
@@ -95,9 +98,12 @@ is in scope.
 
 | Subagent | Role | Model |
 |---|---|---|
-| `/planner-codex` | Produce an implementation plan without editing code. | `gpt-5.3-codex` |
-| `/planner-gpt55` | Produce an implementation plan tuned for GPT-5.5. | `gpt-5.5` |
+| `/planner-composer` | Fast bounded planning for clear tasks. | `composer-2` |
+| `/planner-codex` | Middle-ground structured planning for moderate complexity. | `gpt-5.3-codex` |
+| `/planner-gpt55` | Deep planning for ambiguous or high-risk work. | `gpt-5.5` |
+| `/python-coder-codex` | Careful Python implementation for complex changes. | `gpt-5.3-codex` |
 | `/python-coder-composer` | Implement Python changes after inspecting the project. | `composer-2` |
+| `/reviewer-composer` | Fast review for low-risk changes. | `composer-2` |
 | `/reviewer-codex` | Review a diff with line-anchored findings. | `gpt-5.3-codex` |
 | `/reviewer-gpt55` | Review a diff with risk-first GPT-5.5 behavior. | `gpt-5.5` |
 
@@ -129,7 +135,7 @@ and reviewer subagents through `/dispatch-subagent`.
 2. Plan the work.
 
    ```text
-   /dispatch-subagent /planner-codex task: feat-foo-module add a Foo class that reads foo.json and exposes get(key)
+   /dispatch-subagent /planner-composer task: feat-foo-module add a Foo class that reads foo.json and exposes get(key)
    ```
 
 3. Implement the plan.
@@ -141,7 +147,7 @@ and reviewer subagents through `/dispatch-subagent`.
 4. Review the diff.
 
    ```text
-   /dispatch-subagent /reviewer-gpt55 task: feat-foo-module review the latest changes
+   /dispatch-subagent /reviewer-codex task: feat-foo-module review the latest changes
    ```
 
 5. Iterate if needed.
@@ -164,6 +170,61 @@ the target subagent needs:
 /dispatch-subagent /python-coder-composer task: feat-foo-module address the review findings
 ```
 
+## Workflow Selection
+
+### Default Balanced
+
+Use for normal Python work where the scope is clear or moderately complex:
+
+```text
+/planner-composer -> /python-coder-composer -> /reviewer-codex
+```
+
+Best for feature work, small refactors, tests, known bugs, and well-understood
+behavior updates. Avoid for architecture, security, infrastructure, concurrency,
+or vague tasks.
+
+Examples: add schema validation, extract a shared helper, add pytest coverage,
+or fix a known background job state bug.
+
+Rationale: Composer keeps planning and implementation fast; Codex gives the
+final review more depth.
+
+### Serious / High-Risk
+
+Use when a bad implementation would be expensive to unwind:
+
+```text
+/planner-gpt55 -> /python-coder-codex -> /reviewer-codex
+```
+
+Best for architecture changes, multi-file refactors, async workflows, job
+orchestration, migrations, security-sensitive work, and production-risk changes.
+Avoid for cleanup, formatting, one-file fixes, or docs-only updates.
+
+Examples: redesign a worker pipeline, change deployment behavior, add migration
+logic, or add concurrency controls around job processing.
+
+Rationale: GPT-5.5 spends more effort on planning trade-offs while Codex handles
+careful implementation and review.
+
+### Cheap / Fast Iteration
+
+Use when the task is small, obvious, low-risk, and easy to inspect manually:
+
+```text
+/planner-composer -> /python-coder-composer -> /reviewer-composer
+```
+
+Best for docs, simple tests, lint fixes, type hint cleanup, docstrings,
+mechanical renames, and one-file changes. Avoid for production risk, complex
+logic, credentials, deployment, concurrency, or migrations.
+
+Examples: update README guidance, add a missing docstring, rename a helper, fix a
+lint complaint, or test an existing pure function.
+
+Rationale: Composer across the loop keeps simple iteration cheap and quick.
+
 ## How the Pieces Fit Together
 
 ```mermaid
@@ -172,11 +233,11 @@ flowchart TD
   begin --> pointer["active-session.txt"]
   begin --> session["Session file in .cursor/scratch/sessions/"]
   begin --> dispatchPlan["/dispatch-subagent"]
-  dispatchPlan --> plan["/planner-codex or /planner-gpt55"]
+  dispatchPlan --> plan["/planner-composer, /planner-codex, or /planner-gpt55"]
   plan --> dispatchCode["/dispatch-subagent"]
-  dispatchCode --> code["/python-coder-composer"]
+  dispatchCode --> code["/python-coder-composer or /python-coder-codex"]
   code --> dispatchReview["/dispatch-subagent"]
-  dispatchReview --> review["/reviewer-codex or /reviewer-gpt55"]
+  dispatchReview --> review["/reviewer-composer, /reviewer-codex, or /reviewer-gpt55"]
   review --> iterate{"More changes needed?"}
   iterate -- yes --> dispatchCode
   iterate -- no --> endcmd["/end-session &lt;task&gt;"]
@@ -213,7 +274,8 @@ handoff record.
 
 The Python coder may create `.cursor/scratch/tooling.md` in a target project to
 remember the formatter, linter, type checker, and test command it discovered.
-The scratch directory also gets its own `.gitignore`, so these notes stay local.
+`/begin-session` keeps `.cursor/scratch/` ignored by the target repo, and the
+scratch directory also gets its own `.gitignore`.
 
 This is intentionally not vector memory, semantic search, or cross-project
 learning. It is just one task at a time in markdown.
@@ -228,7 +290,7 @@ Each synced subagent is instructed to announce its active subagent identity,
 rules, and skills before starting work. A healthy Python run looks roughly like:
 
 ```text
-Loaded: subagent = python-coder-composer; rules = code-quality.mdc, subagent-loaded-context.mdc, python.mdc, python-tests.mdc; skills = python-style
+Loaded: subagent = python-coder-composer (composer-2); rules = code-quality.mdc, subagent-loaded-context.mdc, python.mdc, python-tests.mdc; skills = python-style
 ```
 
 If `python.mdc` or `python-tests.mdc` is missing, make sure a matching Python
@@ -256,6 +318,6 @@ CouchPilot keeps the surface area small on purpose:
 - No persistent memory system.
 - No `.couchpilot/tasks/` workspace.
 - No formatter or linter config templates for target projects.
-- No subagents beyond the current planner, coder, and reviewer set.
+- No non-Python coder templates.
 
 Add more only when a real workflow need earns the extra complexity.

@@ -14,10 +14,9 @@ Use this format:
 Loaded: subagent = <subagent name>; rules = <comma-separated rule filenames or (none)>; skills = <comma-separated skill names or (none)>
 ```
 
-Include rules from injected context, workspace `.cursor/rules/*.mdc`,
-user-scope `~/.cursor/rules/*.mdc`, and any extra Cursor rule paths surfaced in
-settings. Include skills the subagent actually read or is about to rely on for
-the task.
+Report rules already present in the agent context; do not re-read rule files
+solely to build this announcement. Include skills the subagent actually read or
+is about to rely on for the task.
 
 If the expected subagent, rule, or skill is missing or mismatched, say so plainly
 in the same update before continuing or asking for a decision.

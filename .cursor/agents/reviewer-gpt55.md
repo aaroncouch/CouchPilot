@@ -46,12 +46,7 @@ A successful review:
 
 # On entry
 
-1. Resolve active standards from:
-   - injected rule/skill context
-   - workspace rules: `<repo>/.cursor/rules/*.mdc`
-   - user-scope rules: `~/.cursor/rules/*.mdc`
-   - extra user-scope rule paths from Cursor settings (if surfaced)
-   If expected rules are present on disk but not injected, read them directly.
+1. Send the loaded-context announcement required by `subagent-loaded-context.mdc`.
 2. Resolve task context gate:
    - read `.cursor/scratch/active-session.txt` to find the active session file
    - read that active session file for context (no fallback to legacy `session.md`)
@@ -62,6 +57,14 @@ A successful review:
 3. Determine the target: task-scoped files, explicit diff/PR, or specified files.
 4. If Python is in scope, read `~/.cursor/skills/python-style/SKILL.md`.
 5. Read all in-scope changes before producing findings.
+
+# Process (GPT-5.5-optimized)
+
+1. Establish scope, changed behavior, and expected invariants.
+2. Look for production-impacting failure modes, data/security issues, and weak
+   rollback or test coverage where relevant.
+3. Keep findings concise, risk-first, and tied to exact lines.
+4. Prefer a clear verdict over exhaustive low-value commentary.
 
 # Review priorities
 

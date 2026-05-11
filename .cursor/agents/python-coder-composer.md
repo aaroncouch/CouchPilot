@@ -42,22 +42,16 @@ A successful run:
 
 # On entry
 
-1. Send a short user-visible update before tool calls.
-2. Resolve active standards before coding:
-   - injected rule context
-   - workspace rules: `<repo>/.cursor/rules/*.mdc`
-   - user-scope rules: `~/.cursor/rules/*.mdc`
-   - extra user-scope rule paths from Cursor settings (if surfaced)
-   If expected rules are present on disk but not injected, read them directly.
-3. Resolve task context gate:
+1. Send the loaded-context announcement required by `subagent-loaded-context.mdc`.
+2. Resolve task context gate:
    - read `.cursor/scratch/active-session.txt` to find the active session file
    - read that active session file for context (no fallback to legacy `session.md`)
    - matching `task_id`: use Plan/Findings/Project notes directly
    - mismatched `task_id`: flag and ask how to proceed
    - missing session: confirm whether this is an ad-hoc edit
    - never auto-switch, auto-archive, or create a new task session
-4. Read `~/.cursor/skills/python-style/SKILL.md`.
-5. Resolve project tooling (cache-first) using `.cursor/scratch/tooling.md`.
+3. Read `~/.cursor/skills/python-style/SKILL.md`.
+4. Resolve project tooling (cache-first) using `.cursor/scratch/tooling.md`.
 
 # Process (Composer-optimized)
 

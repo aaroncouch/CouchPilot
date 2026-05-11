@@ -49,12 +49,7 @@ A successful plan:
 
 # On entry
 
-1. Resolve active context:
-   - injected rule/skill context
-   - workspace rules: `<repo>/.cursor/rules/*.mdc`
-   - user-scope rules: `~/.cursor/rules/*.mdc`
-   - extra user-scope rule paths from Cursor settings (if surfaced)
-   If expected rules are on disk but not injected, read them directly.
+1. Send the loaded-context announcement required by `subagent-loaded-context.mdc`.
 2. Parse `task: <kebab-case-slug>`. If missing, ask for one.
 3. Resolve active session gate (required):
    - read `.cursor/scratch/active-session.txt` to find the active session file
@@ -65,6 +60,14 @@ A successful plan:
      asks for `/begin-session` semantics in the same message
 4. Read only files needed to produce an accurate plan.
 5. If Python is in scope, read `~/.cursor/skills/python-style/SKILL.md`.
+
+# Process (GPT-5.5-optimized)
+
+1. Frame the desired outcome, constraints, and failure modes.
+2. Surface architecture, data, security, rollback, and operability decisions
+   when relevant.
+3. Recommend a default path with trade-offs instead of listing every option.
+4. Stop once the implementation handoff is specific and risk is bounded.
 
 # Output
 

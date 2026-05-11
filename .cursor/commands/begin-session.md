@@ -24,7 +24,14 @@ Example:
 !.gitignore
 ```
 
-4. Create the canonical session file if missing with this scaffold:
+4. Ensure `.cursor/scratch/` is ignored by the target repo:
+   - If the workspace has a root `.gitignore`, add `.cursor/scratch/` only if
+     an equivalent ignore is missing.
+   - If there is no root `.gitignore`, create one with `.cursor/scratch/`.
+   - If any `.cursor/scratch/` files are already tracked by git, report that
+     blocker; `.gitignore` does not untrack existing tracked files.
+
+5. Create the canonical session file if missing with this scaffold:
 
 ```text
 ---
@@ -52,7 +59,7 @@ git_ref: <branch>@<short-sha>
 - <ISO8601> [begin-session] Session started.
 ```
 
-5. Update active pointer file:
+6. Update active pointer file:
    - `.cursor/scratch/active-session.txt`
    - contents:
 
@@ -62,7 +69,7 @@ path: .cursor/scratch/sessions/<task_id>__<sanitized-branch>__<short-sha>.md
 git_ref: <branch>@<short-sha>
 ```
 
-6. If active pointer already references a different task, do not archive/discard
+7. If active pointer already references a different task, do not archive/discard
    anything automatically; just switch pointer and report the old/new paths.
 
 ## Output
@@ -71,4 +78,5 @@ Return:
 - active task id
 - canonical session path
 - whether created or reused
+- whether root `.gitignore` already ignored or now ignores `.cursor/scratch/`
 - previous active session path (if switched)
