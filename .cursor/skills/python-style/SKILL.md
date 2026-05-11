@@ -1,6 +1,7 @@
 ---
 name: python-style
-description: Use when writing or editing Python code so it matches the project owner's style — simple, OOP-first, well-documented, and PyLint-clean. Authoritative reference for Python coder subagents.
+description: Explicit deep reference for the project owner's Python style. Read only when a prompt asks for the detailed Python style guide.
+disable-model-invocation: true
 ---
 
 # Python Coding Style
@@ -9,12 +10,10 @@ The goal: code so plain that intent is obvious on first read, and so
 clean that running the project's lint and format tools produces zero
 findings.
 
-This skill is intentionally short. The bulk of the standard — cross-language
-quality defaults, style and clarity, OOP-first architecture, typing, error
-handling, quality-gate principles, tests, and the concrete tooling baseline
-values — lives in the `code-quality.mdc` and `python.mdc` rules, which Cursor
-auto-attaches for active coding contexts. Treat those rules as authoritative
-for everything they cover; this skill only adds what does not fit cleanly in a
+This skill is intentionally explicit rather than automatically selected. The
+automatic layer lives in the rules: cross-language quality defaults, Python
+guardrails, and Python test conventions. Treat those rules as authoritative for
+everything they cover; this skill only adds details that do not fit cleanly in a
 rule.
 
 ## Documentation

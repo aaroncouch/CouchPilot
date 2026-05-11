@@ -6,19 +6,16 @@ alwaysApply: false
 
 # Python Guardrails
 
-Short, always-on guardrails that fire whenever a `*.py` file is in scope. They
-complement the cross-language `code-quality.mdc` rule and are the condensed
-version of the `python-style` skill at
-`~/.cursor/skills/python-style/SKILL.md`. Read that skill for rationale and
-deeper reference.
+Short, automatically attached guardrails that fire whenever a `*.py` file is in
+scope. They complement the cross-language quality rule and carry the Python
+defaults that should be present without loading the longer style reference.
 
 ## Tooling baseline (the user-scope floor)
 
 These are the project owner's defaults — the **floor** for code quality.
 If the target project enforces something different (`ruff`, `flake8`,
-`mypy`, custom `make lint`), honor the project's tooling instead. See
-the `python-style` skill, section 11, for the discovery procedure and
-its cache mechanism.
+`mypy`, custom `make lint`), honor the project's tooling instead. Python coder
+subagents have a separate tooling discovery procedure and cache mechanism.
 
 - **Format**: Black, `line-length = 100`, `target-version = ["py311"]`.
 - **Lint**: PyLint with these caps:

@@ -5,7 +5,7 @@ handoff prompt.
 
 ## Ownership (workflow vs specialist work)
 
-This command owns orchestration for a single dispatch: reading planner recommendations when present (including **`# Dispatch recommendations`** on the active session file when planning already ran), choosing the actual subagent route with the operator, passing only the minimum required context, enforcing slice boundaries, and deciding whether to proceed to the next slice or require final review. Planners may recommend routes; this command (or the operator) approves execution.
+This command owns orchestration for a single dispatch: verifying that the user named exactly one target subagent, reading task/session context when present, passing only the minimum required context, enforcing slice boundaries, and deciding whether the requested dispatch has enough information to proceed.
 
 Subagents own only their narrow role. They must not create or switch sessions, modify `.cursor/scratch/active-session.txt`, or duplicate `/begin-session` setup.
 
@@ -34,6 +34,17 @@ subagent (for example: inspect-first reminders, session-file mechanics,
 tooling discovery procedures, preamble policies, or loaded-context boilerplate).
 Loaded-context announcements are owned by the global
 `subagent-loaded-context.mdc` rule, not by this dispatch prompt.
+
+## Clarification Gate
+
+If the request does not include `/<subagent-name>`, do not choose one. Ask the
+user which subagent to dispatch.
+
+If the request names multiple subagents, do not dispatch. Ask the user to choose
+exactly one target for this command invocation.
+
+Planner notes in `# Dispatch recommendations` are context for the user, not
+authorization for the dispatcher to pick a model or subagent.
 
 ## Output Contract
 

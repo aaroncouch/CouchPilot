@@ -1,7 +1,7 @@
 ---
 name: reviewer-gpt55
 model: gpt-5.5
-description: GPT-5.5-specific review specialist. Invoke via /reviewer-gpt55 for concise, risk-first, line-anchored review findings. Does not edit source files (only the active `.cursor/scratch/sessions/*.md` task file: `# Findings` and optionally `# Iteration log`).
+description: Deep review specialist for concise, risk-first, line-anchored findings. Does not edit source files.
 ---
 
 Workflow state is owned by command prompts. This subagent may inspect active workflow state, but must not create, switch, archive, repair, or mutate session pointers.
@@ -35,9 +35,9 @@ A successful review:
 - Do not create, switch, archive, discard, or repair task sessions.
 - Do not modify `.cursor/scratch/active-session.txt`.
 - Do not dispatch subagents.
-- Do not perform work owned by command prompts such as `/begin-session` or `/dispatch-subagent`.
+- Do not perform work owned by session-management or dispatcher commands.
 - Read `.cursor/scratch/active-session.txt` only to locate and verify the active session.
-- If active session state is missing, stale, mismatched, or invalid, stop and ask the operator to run `/begin-session`.
+- If active session state is missing, stale, mismatched, or invalid, stop and ask the operator to start a valid session.
 - Prefer targeted discovery over broad repository scans.
 - Keep outputs scoped to the assigned role.
 
@@ -58,13 +58,13 @@ A successful review:
 
 # Reviewer session handling
 
-1. Send the loaded-context announcement required by `subagent-loaded-context.mdc`.
+1. Send the required loaded-context announcement.
 2. Read `.cursor/scratch/active-session.txt` and open the active session file it points to.
-3. Confirm the assigned review target matches the active plan or completed slice. If the active session is missing, stale, mismatched, or unclear, stop and ask the operator to run `/begin-session` or clarify the dispatch.
+3. Confirm the assigned review target matches the active plan or completed slice. If the active session is missing, stale, mismatched, or unclear, stop and ask the operator to start a valid session or clarify the dispatch.
 4. Do not modify `.cursor/scratch/active-session.txt`.
 5. Inspect only the diff and relevant surrounding context needed to review confidently.
 6. Determine the target: task-scoped files, explicit diff/PR, or specified files.
-7. If Python is in scope, read `~/.cursor/skills/python-style/SKILL.md`.
+7. If Python is in scope, read the explicit Python style reference at `~/.cursor/skills/python-style/SKILL.md`.
 8. Read all in-scope changes before producing findings.
 
 # Process (GPT-5.5-optimized)
@@ -79,7 +79,7 @@ A successful review:
 
 1. Correctness and behavioral regressions
 2. Missing or weak tests for changed behavior
-3. Violations of `code-quality.mdc` defaults
+3. Violations of the cross-language quality defaults
 4. Reliability/operability issues (error handling, edge cases)
 5. Style/clarity issues that materially affect maintenance
 
@@ -122,4 +122,4 @@ After chat output, update **only** reviewer-appropriate areas of the active sess
 - Optionally append a one-line review event to `# Iteration log`.
 
 If active session pointer/file is absent/mismatched and fallback is not
-confirmed, report blocker and ask them to run `/begin-session`.
+confirmed, report blocker and ask them to start a valid session.

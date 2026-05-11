@@ -4,11 +4,11 @@ Start or switch the active task session explicitly.
 
 ## Usage
 
-`/begin-session task: <kebab-case-task-id> <short task description>`
+`/begin-session task: <kebab-case-task-id> <task context, goals, constraints, and acceptance criteria>`
 
 Example:
 
-`/begin-session task: p1-04-alert-threshold-hotfix start new task for alert threshold bug on current branch`
+`/begin-session task: p1-04-alert-threshold-hotfix fix alert threshold bug on current branch; preserve existing API; add regression coverage`
 
 ## Behavior
 
@@ -44,13 +44,13 @@ git_ref: <branch>@<short-sha>
 ---
 
 # Task
-<description from command>
+<task-specific context from command: goals, constraints, acceptance criteria, relevant notes>
 
 # Plan
 (planner fills: execution strategy only—goal, approach, slices as behavior, files, tests, risks)
 
 # Dispatch recommendations
-(planner fills: per-slice coder/reviewer picks, routing rules, handoff—operator/dispatcher reads this, not the coding subagent)
+(planner fills: next action, complexity signals, review need, and handoff context only—user/operator reads this, not the coding subagent)
 
 # Implementation notes
 (coder appends changed files, validation results, blockers, and slice completion notes)

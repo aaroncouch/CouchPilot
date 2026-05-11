@@ -18,7 +18,7 @@ python sync.py
 Then restart Cursor, open a Python project, and use the loop:
 
 ```text
-/begin-session task: feat-foo-module implement foo workflow
+/begin-session task: feat-foo-module implement foo workflow; include goals, constraints, and acceptance criteria here
 /dispatch-subagent /planner-composer task: feat-foo-module plan the implementation
 /dispatch-subagent /python-coder-composer task: feat-foo-module execute the plan
 /dispatch-subagent /reviewer-codex task: feat-foo-module review the changes
@@ -78,7 +78,8 @@ from any workspace.
 
 ### Rules
 
-Rules are short guardrails Cursor can inject automatically.
+Rules are the automatic guardrail layer. They are intentionally short because
+they may be injected whenever their metadata matches the current context.
 
 - `code-quality.mdc` applies globally and keeps edits minimal, idiomatic, and
   low-noise.
@@ -90,9 +91,18 @@ Rules are short guardrails Cursor can inject automatically.
 
 ### Skill
 
-`python-style` is the longer "code the way I write code" reference. The Python
-coder reads it before implementation work, and reviewers consult it when Python
-is in scope.
+`python-style` is the longer "code the way I write code" reference. It is marked
+with `disable-model-invocation: true`, so it should not be auto-selected just
+because Python is nearby. Python subagents read it explicitly when they need the
+deeper style guide.
+
+Rule vs skill distinction in CouchPilot:
+
+- Rules are compact defaults that can be automatically attached.
+- Skills are longer references that should be read deliberately.
+- If guidance must always be present for Python code, keep it in `python.mdc`.
+- If guidance is detailed rationale or reporting convention, keep it in the
+  explicit skill.
 
 ### Subagents
 
@@ -123,19 +133,21 @@ the relevant agent file and run `python sync.py` again.
 ## Daily Workflow
 
 Use one task ID for the whole loop. A short kebab-case slug works well:
-`task: feat-foo-module`. After the session starts, always call planner, coder,
-and reviewer subagents through `/dispatch-subagent`.
+`task: feat-foo-module`. Put the durable task context in `/begin-session`:
+goals, constraints, acceptance criteria, relevant notes, and messy-but-useful
+task rambling. After the session starts, keep `/dispatch-subagent` prompts short
+and route planner, coder, and reviewer subagents through it.
 
 1. Start the task.
 
    ```text
-   /begin-session task: feat-foo-module implement foo workflow
+   /begin-session task: feat-foo-module implement foo workflow; reads foo.json; expose get(key); preserve current callers; add pytest coverage
    ```
 
 2. Plan the work.
 
    ```text
-   /dispatch-subagent /planner-composer task: feat-foo-module add a Foo class that reads foo.json and exposes get(key)
+   /dispatch-subagent /planner-composer task: feat-foo-module plan the implementation
    ```
 
 3. Implement the plan.
@@ -170,7 +182,15 @@ the target subagent needs:
 /dispatch-subagent /python-coder-composer task: feat-foo-module address the review findings
 ```
 
-## Workflow Selection
+Avoid pasting the full task brief into every dispatch. If the context should be
+available to planner, coder, and reviewer, put it in the session with
+`/begin-session`; use dispatch prompts for the immediate action only.
+
+## Workflow Examples
+
+These are example routes, not automatic choices. The user chooses which subagent
+to dispatch each time. If `/dispatch-subagent` is called without exactly one
+`/<subagent-name>`, it should ask for clarification instead of selecting a route.
 
 ### Default Balanced
 
@@ -277,10 +297,10 @@ particular, `/begin-session` creates the session scaffold, maintains
 `.cursor/scratch/active-session.txt`, and ensures scratch is ignored by git.
 Subagents read the pointer only to locate the active session file; they do not
 edit the pointer or recreate session infrastructure. Within the session file,
-planners write `# Plan` (execution only) and `# Dispatch recommendations`
-(subagent routing for the operator); coders append to `# Implementation notes`,
-`# Iteration log`, and `# Project notes`; reviewers write `# Findings` (and may
-append a line to `# Iteration log`).
+planners write `# Plan` (execution only) and concise `# Dispatch recommendations`
+(next action, complexity signals, review need, and handoff context); coders
+append to `# Implementation notes`, `# Iteration log`, and `# Project notes`;
+reviewers write `# Findings` (and may append a line to `# Iteration log`).
 
 The Python coder may create `.cursor/scratch/tooling.md` in a target project to
 remember the formatter, linter, type checker, and test command it discovered.
