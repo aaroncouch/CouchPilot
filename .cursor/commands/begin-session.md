@@ -47,7 +47,10 @@ git_ref: <branch>@<short-sha>
 <description from command>
 
 # Plan
-(planner fills this in)
+(planner fills: execution strategy only—goal, approach, slices as behavior, files, tests, risks)
+
+# Dispatch recommendations
+(planner fills: per-slice coder/reviewer picks, routing rules, handoff—operator/dispatcher reads this, not the coding subagent)
 
 # Implementation notes
 (coder appends changed files, validation results, blockers, and slice completion notes)

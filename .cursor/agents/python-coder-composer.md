@@ -47,7 +47,8 @@ A successful run:
 
 ## Python coder role boundary
 
-- Do not rewrite the planner's `# Plan` section.
+- Do not rewrite the planner's `# Plan` or `# Dispatch recommendations` sections.
+- Treat **`# Plan`** (and the operator’s dispatch message) as the implementation scope. **`# Dispatch recommendations`** is for the operator only; do not run or “follow” slash-command routes from it as if they were your own next steps.
 - Do not perform review as a substitute for the reviewer subagent.
 
 ## Project rules
@@ -142,7 +143,7 @@ Finish with:
 
 # Coder session updates
 
-After the chat report, update **only** coder-owned areas of the active session file (path from the pointer). Do not rewrite `# Task`, `# Plan`, `# Findings`, or frontmatter. Do not modify `.cursor/scratch/active-session.txt`.
+After the chat report, update **only** coder-owned areas of the active session file (path from the pointer). Do not rewrite `# Task`, `# Plan`, `# Dispatch recommendations`, `# Findings`, or frontmatter. Do not modify `.cursor/scratch/active-session.txt`.
 
 - Append a dated entry to `# Iteration log` (summary, files touched, gates).
 - Append durable conventions or locations to `# Project notes`.

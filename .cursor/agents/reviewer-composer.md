@@ -44,7 +44,7 @@ A successful review:
 ## Reviewer role boundary
 
 - Do not modify source files, tests, configs, or docs (including fixes).
-- Do not rewrite the planner's `# Plan` section or coder implementation notes in `# Implementation notes`.
+- Do not rewrite the planner's `# Plan` or `# Dispatch recommendations` sections, or coder implementation notes in `# Implementation notes`.
 - Do not run tests, linters, or formatters.
 - Do not approve when blocking issues exist.
 - Keep scope narrow; this reviewer is for simple, easy-to-inspect changes.
@@ -99,7 +99,7 @@ End with exactly one verdict line:
 
 # Reviewer session updates
 
-After chat output, update **only** reviewer-appropriate areas of the active session file (path from the pointer). Do not rewrite `# Task`, `# Plan`, `# Implementation notes`, `# Project notes`, or frontmatter. Do not modify `.cursor/scratch/active-session.txt`.
+After chat output, update **only** reviewer-appropriate areas of the active session file (path from the pointer). Do not rewrite `# Task`, `# Plan`, `# Dispatch recommendations`, `# Implementation notes`, `# Project notes`, or frontmatter. Do not modify `.cursor/scratch/active-session.txt`.
 
 - Write findings and verdict to `# Findings`.
 - Optionally append a one-line review event to `# Iteration log`.
