@@ -19,9 +19,7 @@ Then restart Cursor, open a Python project, and use the loop:
 
 ```text
 /begin-session task: feat-foo-module implement foo workflow; include goals, constraints, and acceptance criteria here
-/dispatch-subagent /planner-composer task: feat-foo-module plan the implementation
-/dispatch-subagent /python-coder-composer task: feat-foo-module execute the plan
-/dispatch-subagent /reviewer-codex task: feat-foo-module review the changes
+# Then delegate from the main chat (see /begin-session → Delegation to subagents), e.g. /planner-inherit, /python-coder-inherit, /reviewer-codex, with Goal / Scope / Acceptance / Gates / Report / Session intent.
 /end-session task: feat-foo-module completed
 ```
 
@@ -33,9 +31,9 @@ Re-run `python sync.py` whenever you change this repo's `.cursor/` files. Use
 CouchPilot gives Cursor a reusable working style:
 
 - Start a task with a clear task ID.
-- Dispatch a planner for a concrete implementation plan.
-- Dispatch that plan to a Python-focused coding subagent.
-- Dispatch the diff to a reviewer subagent.
+- Delegate to a planner for a concrete implementation plan.
+- Delegate that plan to a Python-focused coding subagent.
+- Delegate the diff to a reviewer subagent.
 - Keep the handoff notes in simple scratch files instead of re-explaining the
   task every time.
 
@@ -55,18 +53,17 @@ CouchPilot/
     skills/
       python-style/SKILL.md
     agents/
-      planner-composer.md
+      planner-inherit.md
       planner-codex.md
       planner-gpt55.md
       python-coder-codex.md
-      python-coder-composer.md
-      reviewer-composer.md
+      python-coder-inherit.md
+      reviewer-inherit.md
       reviewer-codex.md
       reviewer-gpt55.md
     commands/
       begin-session.md
       end-session.md
-      dispatch-subagent.md
       deslop-main-diff.md
       deslop-workspace.md
   sync.py
@@ -108,12 +105,12 @@ Rule vs skill distinction in CouchPilot:
 
 | Subagent | Role | Model |
 |---|---|---|
-| `/planner-composer` | Fast bounded planning for clear tasks. | `composer-2` |
+| `/planner-inherit` | Fast bounded planning for clear tasks. | `inherit` |
 | `/planner-codex` | Middle-ground structured planning for moderate complexity. | `gpt-5.3-codex` |
 | `/planner-gpt55` | Deep planning for ambiguous or high-risk work. | `gpt-5.5` |
 | `/python-coder-codex` | Careful Python implementation for complex changes. | `gpt-5.3-codex` |
-| `/python-coder-composer` | Implement Python changes after inspecting the project. | `composer-2` |
-| `/reviewer-composer` | Fast review for low-risk changes. | `composer-2` |
+| `/python-coder-inherit` | Implement Python changes after inspecting the project. | `inherit` |
+| `/reviewer-inherit` | Fast review for low-risk changes. | `inherit` |
 | `/reviewer-codex` | Review a diff with line-anchored findings. | `gpt-5.3-codex` |
 | `/reviewer-gpt55` | Review a diff with risk-first GPT-5.5 behavior. | `gpt-5.5` |
 
@@ -122,11 +119,8 @@ the relevant agent file and run `python sync.py` again.
 
 ### Commands
 
-- `/begin-session` starts or switches the active task.
+- `/begin-session` starts or switches the active task and defines **Delegation to subagents** (how the main chat delegates to planner, coder, or reviewer).
 - `/end-session` archives the active task and clears the pointer.
-- `/dispatch-subagent` is the required path for planner, coder, and reviewer
-  subagent work. It carries the handoff structure and prompt metadata the parent
-  agent needs when delegating.
 - `/deslop-main-diff` runs an optional cleanup pass over branch changes.
 - `/deslop-workspace` runs an optional cleanup pass across the workspace.
 
@@ -135,8 +129,9 @@ the relevant agent file and run `python sync.py` again.
 Use one task ID for the whole loop. A short kebab-case slug works well:
 `task: feat-foo-module`. Put the durable task context in `/begin-session`:
 goals, constraints, acceptance criteria, relevant notes, and messy-but-useful
-task rambling. After the session starts, keep `/dispatch-subagent` prompts short
-and route planner, coder, and reviewer subagents through it.
+task rambling. After the session starts, follow **Delegation to subagents** in
+`/begin-session` when delegating from the main chat; keep delegated prompts
+task-only (`Goal`, `Scope`, …).
 
 1. Start the task.
 
@@ -144,28 +139,28 @@ and route planner, coder, and reviewer subagents through it.
    /begin-session task: feat-foo-module implement foo workflow; reads foo.json; expose get(key); preserve current callers; add pytest coverage
    ```
 
-2. Plan the work.
+2. Plan the work (main chat: e.g. invoke `/planner-inherit` with structured handoff per `/begin-session` → Delegation).
 
    ```text
-   /dispatch-subagent /planner-composer task: feat-foo-module plan the implementation
+   /planner-inherit   # task: feat-foo-module — plan the implementation (Goal, Scope, Acceptance, Gates, Report, Session intent)
    ```
 
 3. Implement the plan.
 
    ```text
-   /dispatch-subagent /python-coder-composer task: feat-foo-module execute the approved plan
+   /python-coder-inherit   # task: feat-foo-module — execute the approved plan
    ```
 
 4. Review the diff.
 
    ```text
-   /dispatch-subagent /reviewer-codex task: feat-foo-module review the latest changes
+   /reviewer-codex   # task: feat-foo-module — review the latest changes
    ```
 
 5. Iterate if needed.
 
    ```text
-   /dispatch-subagent /python-coder-composer task: feat-foo-module address the review findings
+   /python-coder-inherit   # task: feat-foo-module — address the review findings
    ```
 
 6. End the task.
@@ -174,30 +169,20 @@ and route planner, coder, and reviewer subagents through it.
    /end-session task: feat-foo-module completed and merged
    ```
 
-Always use `/dispatch-subagent` for subagent work. It keeps the parent chat
-acting as a dispatcher and passes the task-specific sections and prompt metadata
-the target subagent needs:
-
-```text
-/dispatch-subagent /python-coder-composer task: feat-foo-module address the review findings
-```
-
-Avoid pasting the full task brief into every dispatch. If the context should be
-available to planner, coder, and reviewer, put it in the session with
-`/begin-session`; use dispatch prompts for the immediate action only.
+Keep each delegated prompt short: use the section list in `/begin-session` → **Delegation to subagents**. If the full brief should be visible to every subagent, keep it in the session file via `/begin-session`; in the delegated message, carry only what that hop needs beyond `# Task` / `# Plan`.
 
 ## Workflow Examples
 
 These are example routes, not automatic choices. The user chooses which subagent
-to dispatch each time. If `/dispatch-subagent` is called without exactly one
-`/<subagent-name>`, it should ask for clarification instead of selecting a route.
+to use each time. If delegation is requested without exactly one target subagent
+name, the parent should ask for clarification instead of selecting a route.
 
 ### Default Balanced
 
 Use for normal Python work where the scope is clear or moderately complex:
 
 ```text
-/planner-composer -> /python-coder-composer -> /reviewer-codex
+/planner-inherit -> /python-coder-inherit -> /reviewer-codex
 ```
 
 Best for feature work, small refactors, tests, known bugs, and well-understood
@@ -207,8 +192,8 @@ or vague tasks.
 Examples: add schema validation, extract a shared helper, add pytest coverage,
 or fix a known background job state bug.
 
-Rationale: Composer keeps planning and implementation fast; Codex gives the
-final review more depth.
+Rationale: Inherit keeps planning and implementation on the parent’s model route;
+Codex gives the final review more depth.
 
 ### Serious / High-Risk
 
@@ -233,7 +218,7 @@ careful implementation and review.
 Use when the task is small, obvious, low-risk, and easy to inspect manually:
 
 ```text
-/planner-composer -> /python-coder-composer -> /reviewer-composer
+/planner-inherit -> /python-coder-inherit -> /reviewer-inherit
 ```
 
 Best for docs, simple tests, lint fixes, type hint cleanup, docstrings,
@@ -243,7 +228,7 @@ logic, credentials, deployment, concurrency, or migrations.
 Examples: update README guidance, add a missing docstring, rename a helper, fix a
 lint complaint, or test an existing pure function.
 
-Rationale: Composer across the loop keeps simple iteration cheap and quick.
+Rationale: Inherit across the loop keeps simple iteration cheap and quick.
 
 ## How the Pieces Fit Together
 
@@ -252,14 +237,14 @@ flowchart TD
   start["Start work"] --> begin["/begin-session &lt;task&gt;"]
   begin --> pointer["active-session.txt"]
   begin --> session["Session file in .cursor/scratch/sessions/"]
-  begin --> dispatchPlan["/dispatch-subagent"]
-  dispatchPlan --> plan["/planner-composer, /planner-codex, or /planner-gpt55"]
-  plan --> dispatchCode["/dispatch-subagent"]
-  dispatchCode --> code["/python-coder-composer or /python-coder-codex"]
-  code --> dispatchReview["/dispatch-subagent"]
-  dispatchReview --> review["/reviewer-composer, /reviewer-codex, or /reviewer-gpt55"]
+  begin --> delegatePlan["Delegate from main chat"]
+  delegatePlan --> plan["/planner-inherit, /planner-codex, or /planner-gpt55"]
+  plan --> delegateCode["Delegate from main chat"]
+  delegateCode --> code["/python-coder-inherit or /python-coder-codex"]
+  code --> delegateReview["Delegate from main chat"]
+  delegateReview --> review["/reviewer-inherit, /reviewer-codex, or /reviewer-gpt55"]
   review --> iterate{"More changes needed?"}
-  iterate -- yes --> dispatchCode
+  iterate -- yes --> delegateCode
   iterate -- no --> endcmd["/end-session &lt;task&gt;"]
   plan -.->|"plan hands off to"| code
   code -.->|"changes can be sent to"| review
@@ -280,7 +265,7 @@ Think of the four Cursor pieces this way:
 - Rules are reflexes.
 - Skills are reference notes.
 - Subagents are focused coworkers.
-- Commands are explicit controls for starting, delegating, and closing work.
+- Commands are explicit controls for starting and closing work; delegation rules live in `/begin-session`.
 
 ## Scratch Files
 
@@ -294,7 +279,9 @@ handoff record.
 
 **Workflow ownership:** slash commands own orchestration and pointer changes. In
 particular, `/begin-session` creates the session scaffold, maintains
-`.cursor/scratch/active-session.txt`, and ensures scratch is ignored by git.
+`.cursor/scratch/active-session.txt`, ensures scratch is ignored by git, and
+defines **Delegation to subagents** (handoff sections, clarification gate, and
+parent-thread output contract for planner/coder/reviewer).
 Subagents read the pointer only to locate the active session file; they do not
 edit the pointer or recreate session infrastructure. Within the session file,
 planners write `# Plan` (execution only) and concise `# Dispatch recommendations`
@@ -320,7 +307,7 @@ Each synced subagent is instructed to announce its active subagent identity,
 rules, and skills before starting work. A healthy Python run looks roughly like:
 
 ```text
-Loaded: subagent = python-coder-composer (composer-2); rules = code-quality.mdc, subagent-loaded-context.mdc, python.mdc, python-tests.mdc; skills = python-style
+Loaded: subagent = python-coder-inherit (inherit); rules = code-quality.mdc, subagent-loaded-context.mdc, python.mdc, python-tests.mdc; skills = python-style
 ```
 
 If `python.mdc` or `python-tests.mdc` is missing, make sure a matching Python
@@ -337,7 +324,7 @@ To add another language, copy the same pattern:
 4. Run `python sync.py`.
 
 Keep names specific enough that they do not collide with everyday slash command
-usage. For example, prefer `/python-coder-composer` over `/python`.
+usage. For example, prefer `/python-coder-inherit` over `/python`.
 
 ## Intentionally Not Included
 

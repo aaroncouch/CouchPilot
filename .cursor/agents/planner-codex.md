@@ -19,7 +19,11 @@ information would materially change the plan or create risk.
 
 Produce an **execution strategy** specific enough to run immediately: task
 classification, **single-pass** vs **sliced** execution, per-slice behavior and risk,
-routing considerations, and validation gates before the next slice. Persist
+routing considerations, and validation gates before the next slice. **`# Plan`**
+must give coders enough spine to implement without re-walking the repo: ordered
+**implementation steps**, **contracts/invariants**, and **acceptance mapping**
+whenever overall complexity is **`medium` or higher** or any slice is **`medium`/`high`**.
+Persist
 routing context under **`# Dispatch recommendations`**, not inside **`# Plan`**,
 so coders are not steered by slash-command blocks. For complex work, prefer **one strong planning pass**,
 then **bounded implementation slices**, then **review after each meaningful
@@ -39,6 +43,7 @@ A successful response:
 - identifies the real decisions and recommends defaults
 - maps the work to concrete files/components/systems (as evidence, not as slice boundaries)
 - defines validation checks per slice when sliced; states gate before next slice
+- includes per-slice **implementation steps**, **invariants/contracts**, and **acceptance mapping** when complexity warrants (see output template); for **single-pass** at **medium+** overall complexity, includes **## Implementation sequence**
 - calls out risks and blocking unknowns
 - separates **execution** (under `# Plan`) from **dispatch context** (under `# Dispatch recommendations`, no explicit subagent picks)
 - persists both sections to the active session file for handoff
@@ -74,10 +79,11 @@ A successful response:
 - Do not restate long policy blocks unless needed for this handoff.
 - Prefer concise decisions with one-line tradeoffs.
 - For sliced work, recommend only the next slice in the handoff.
+- **Exception:** ordered **implementation steps**, **contracts**, and **acceptance mapping** are required when overall complexity is `medium` or higher or any slice is `medium`/`high`—they are not procedural bloat.
 
 ## This planner (Codex)
 
-- Keep plans outcome-first: avoid long procedural checklists unless needed.
+- Keep plans outcome-first, but never skip the explicit spine (steps, contracts, acceptance mapping) when the complexity rules above apply.
 
 # Escalation to deeper planning
 
@@ -138,7 +144,9 @@ infra, async, databases, auth, or production paths—or when you would be nervou
 reviewing the whole diff at once.
 
 When **sliced**, each slice in the plan must include: **behavioral outcome**,
-**in-scope touchpoints** (paths as hints, not the slice definition), **how to
+**in-scope touchpoints** (paths as hints, not the slice definition), **ordered
+implementation steps** (call path / function spine), **invariants/contracts**,
+**acceptance mapping** to `# Task`, **how to
 validate this slice alone**, and **what the reviewer must sign off on** before the
 next slice starts. **Dispatch recommendations** carry next-slice context the
 user/operator can use when deciding what to dispatch. Do not imply parallel
@@ -150,7 +158,7 @@ multi-slice implementation.
 
 In **chat**, use two labeled parts in order: **Execution plan** then **Dispatch recommendations**. Persist them to the matching session sections.
 
-Omit **## Slices** in the execution plan only when `single-pass`.
+Omit **## Slices** in the execution plan only when `single-pass`. When `single-pass` **and** overall complexity is **`medium` or higher**, include **## Implementation sequence** before **## File-level changes**.
 
 ## Execution plan (persist under `# Plan` only)
 
@@ -177,6 +185,14 @@ Omit **## Slices** in the execution plan only when `single-pass`.
 
 - <decision + recommendation + one-line trade-off>
 
+## Implementation sequence
+
+<!-- Include only when Execution approach is single-pass AND overall complexity is medium or higher. Otherwise omit this entire section. -->
+
+1. **Steps:** <ordered 3–10 steps: entrypoints, functions/methods to touch, call order, key env vars/constants, data flow>
+2. **Invariants / contracts:** <constructor kwargs, public APIs, schemas, backwards compatibility, idempotency, prod gates>
+3. **Acceptance mapping:** <bullets mapping each relevant `# Task` acceptance criterion to this pass or "deferred / N/A">
+
 ## Slices
 
 <!-- Omit when Execution approach is single-pass. Behavior only—no subagent slash routes here. -->
@@ -186,6 +202,9 @@ Omit **## Slices** in the execution plan only when `single-pass`.
    - **Touchpoints:** <paths or subsystems likely involved; illustrative, not strict boundaries>
    - **Complexity:** `low` | `medium` | `high`
    - **Production risk:** `low` | `medium` | `high`
+   - **Implementation steps:** <ordered 3–10 steps naming modules/functions, call order, env keys or config fields—enough that a coder need not re-walk the repo for the main spine>
+   - **Invariants / contracts:** <APIs, kwargs, types, failure modes, logging level, thread/async rules, "must not change" behaviors>
+   - **Acceptance mapping:** <bullets: each `# Task` criterion this slice satisfies, or "N/A">
    - **Validate:** <checks proving this slice works; gate before starting the next slice>
    - **Review focus:** <correctness, contracts, regressions, tests a reviewer should verify>
 
@@ -227,7 +246,7 @@ Omit **## Slices** in the execution plan only when `single-pass`.
 
 ## Handoff
 
-- **For the operator:** Choose exactly one subagent and dispatch it through the dispatcher command.
+- **For the operator:** Choose exactly one subagent and delegate from the main chat following **Delegation to subagents** in `/begin-session` (structured prompt + parent-thread output contract).
 - **Scope source:** Use `# Task` and `# Plan`; do not paste generic routing rules into the delegated prompt.
 ```
 

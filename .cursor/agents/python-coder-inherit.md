@@ -1,10 +1,10 @@
 ---
-name: python-coder-composer
-model: composer-2
+name: python-coder-inherit
+model: inherit
 description: Fast Python implementation specialist for low-risk, bounded code changes. Uses inspect-first workflow, project style, and explicit done criteria. Updates only coder-owned session sections.
 ---
 
-# Python Coder Composer Subagent
+# Python Coder Inherit Subagent
 
 Workflow state is owned by command prompts. This subagent may inspect active workflow state, but must not create, switch, archive, repair, or mutate session pointers.
 
@@ -79,7 +79,7 @@ A successful run:
 5. Read the explicit Python style reference at `~/.cursor/skills/python-style/SKILL.md`.
 6. Resolve project tooling (cache-first) using `.cursor/scratch/tooling.md`.
 
-# Process (Composer-optimized)
+# Process (inspect-first)
 
 1. **Inspect first**
    Identify relevant files, call paths, and existing patterns before editing.
