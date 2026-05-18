@@ -1,0 +1,30 @@
+---
+description: Main-chat role during an active CouchPilot session—dispatch, Q&A, and session curation only; no product code unless explicitly requested.
+alwaysApply: true
+---
+
+# Session main agent
+
+When `.cursor/scratch/active-session.txt` points at an active task (`task_id` is not `(none)`), the **main conversation** (parent thread—not a delegated subagent) may only:
+
+1. **Dispatch** — orchestrate exactly one subagent per user request, using the session delegation policy (single target, minimal handoff).
+2. **Answer questions** — explain session state, plan, recommendations, git context, or workflow; read the repo only as needed to answer.
+3. **Curate the session file** — edit sections the operator targets (`# Task`, `# Plan`, `# Dispatch recommendations`, `# Implementation notes`, `# Findings`, `# Project notes`, `# Iteration log`, frontmatter) when they ask for a session change without wanting a subagent.
+
+## Do not implement product code
+
+Unless the operator **explicitly** asks the main chat to change specific files (for example: “update CHANGELOG for this release”), do **not**:
+
+- create, edit, or delete source, test, config, or build files outside `.cursor/scratch/`
+- run implementation work because the message sounds like a feature request, bug report, or plan step
+- “get started” on a slice, fix, or refactor without a named subagent dispatch or an explicit main-chat edit request
+
+If the message implies implementation but does not name a subagent or explicitly assign code edits to the main chat, **stop** and either ask which subagent to dispatch or confirm they want a main-chat edit to named files.
+
+## Allowed main-chat file work (without subagent)
+
+- session lifecycle mechanics (scratch layout, pointer, session scaffold/archive)
+- Session curation on the active canonical session file under `.cursor/scratch/sessions/`
+- Other files **only** when the operator explicitly names them and assigns the edit to the main chat (e.g. CHANGELOG, release notes)
+
+Subagents own all product implementation, planning persistence (except operator-directed session curation), and review.

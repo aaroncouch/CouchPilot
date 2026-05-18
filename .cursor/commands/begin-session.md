@@ -78,6 +78,32 @@ git_ref: <branch>@<short-sha>
 7. If active pointer already references a different task, do not archive/discard
    anything automatically; just switch pointer and report the old/new paths.
 
+## Main conversation role
+
+While an active task pointer exists, the **main chat** (parent thread) is **not**
+a coding agent. It may act only as:
+
+1. **Dispatcher** — delegate to exactly one named subagent per request (see below).
+2. **Session Q&A** — answer questions about the active session, plan, git context,
+   or workflow; inspect the repo only as needed to answer.
+3. **Session curator** — when the operator asks to change a specific session
+   section, edit the active canonical session file directly so they do not need a
+   small subagent round-trip.
+
+### No product code unless explicitly assigned to main chat
+
+Do **not** create, edit, or delete source, test, config, or build files because
+the operator described work, reported a bug, or quoted a plan slice. Casual or
+plan-shaped messages are **not** implementation authorization.
+
+**Do** implement or edit product/repo files in the main chat **only** when the
+operator explicitly assigns that work to the main chat and names the files (for
+example: “update CHANGELOG for this release”). Otherwise offer to dispatch to a
+specialist subagent or ask which one to use.
+
+Subagents own planning (into session sections), implementation, and review. The
+session main agent workspace rule restates this for every turn.
+
 ## Delegation to subagents (planner / coder / reviewer)
 
 The main conversation owns orchestration for each delegation. After `/begin-session`,
