@@ -18,7 +18,9 @@ python sync.py
 Then restart Cursor, open a Python project, and use the loop:
 
 ```text
+/task-brief <paste raw task notes if you want CouchPilot to distill them first>
 /begin-session task: feat-foo-module implement foo workflow; include goals, constraints, and acceptance criteria here
+# Or: /begin-session use previous task brief
 # Then delegate from the main chat. The dispatcher curates prompts from current-handoff.md plus targeted session-log.md excerpts.
 /end-session task: feat-foo-module completed
 ```
@@ -62,6 +64,7 @@ CouchPilot/
       reviewer-codex.md
       reviewer-gpt55.md
     commands/
+      task-brief.md
       begin-session.md
       end-session.md
       deslop-main-diff.md
@@ -119,6 +122,8 @@ the relevant agent file and run `python sync.py` again.
 
 ### Commands
 
+- `/task-brief` distills raw task rambling into `.cursor/scratch/task-brief.md`
+  without starting or changing an active session.
 - `/begin-session` starts or switches the active task, creates a session
   directory with `current-handoff.md` and `session-log.md`, and defines
   **Delegation to subagents** (how the main chat delegates to planner, coder, or
@@ -130,44 +135,54 @@ the relevant agent file and run `python sync.py` again.
 ## Daily Workflow
 
 Use one task ID for the whole loop. A short kebab-case slug works well:
-`task: feat-foo-module`. Put the durable task context in `/begin-session`:
-goals, constraints, acceptance criteria, relevant notes, and messy-but-useful
-task rambling. After the session starts, follow **Delegation to subagents** in
+`task: feat-foo-module`. If your starting point is messy, run `/task-brief`
+first and paste the raw notes; it will derive a suggested slug, problem,
+outcome, constraints, acceptance criteria, files/links, risks, and open
+questions. Then start the session with either explicit context or the latest
+brief. After the session starts, follow **Delegation to subagents** in
 `/begin-session` when delegating from the main chat. The main dispatcher reads
 `current-handoff.md` first, pulls only targeted `session-log.md` excerpts when
 needed, and keeps delegated prompts task-only (`Goal`, `Scope`, …).
 
-1. Start the task.
+1. Optional: distill raw notes before starting.
+
+   ```text
+   /task-brief paste messy notes, logs, links, constraints, and questions here
+   ```
+
+2. Start the task.
 
    ```text
    /begin-session task: feat-foo-module implement foo workflow; reads foo.json; expose get(key); preserve current callers; add pytest coverage
+   # Or:
+   /begin-session use previous task brief
    ```
 
-2. Plan the work (main chat: e.g. invoke `/planner-inherit` with structured handoff per `/begin-session` → Delegation).
+3. Plan the work (main chat: e.g. invoke `/planner-inherit` with structured handoff per `/begin-session` -> Delegation).
 
    ```text
    /planner-inherit   # task: feat-foo-module — plan the implementation (Goal, Scope, Acceptance, Gates, Report, Session intent)
    ```
 
-3. Implement the plan.
+4. Implement the plan.
 
    ```text
    /python-coder-inherit   # task: feat-foo-module — execute the approved plan
    ```
 
-4. Review the diff.
+5. Review the diff.
 
    ```text
    /reviewer-codex   # task: feat-foo-module — review the latest changes
    ```
 
-5. Iterate if needed.
+6. Iterate if needed.
 
    ```text
    /python-coder-inherit   # task: feat-foo-module — address the review findings
    ```
 
-6. End the task.
+7. End the task.
 
    ```text
    /end-session task: feat-foo-module completed and merged
@@ -295,16 +310,18 @@ handoff record. The current state is split from the historical log so most
 dispatches do not need to carry the whole session history.
 
 - Active pointer: `.cursor/scratch/active-session.txt`
+- Latest task brief: `.cursor/scratch/task-brief.md`
 - Current handoff: `.cursor/scratch/sessions/<session-id>/current-handoff.md`
 - Session log: `.cursor/scratch/sessions/<session-id>/session-log.md`
 - Ended sessions: `.cursor/scratch/session-archive/<session-id>/`
 - Tooling cache: `.cursor/scratch/tooling.md`
 
-**Workflow ownership:** slash commands own orchestration and pointer changes. In
-particular, `/begin-session` creates the session scaffold, maintains
-`.cursor/scratch/active-session.txt`, ensures scratch is ignored by git, and
-defines **Delegation to subagents** (handoff sections, clarification gate, and
-parent-thread output contract for planner/coder/reviewer).
+**Workflow ownership:** slash commands own orchestration and pointer changes.
+`/task-brief` only stages a distilled brief and never edits
+`.cursor/scratch/active-session.txt`. `/begin-session` creates the session
+scaffold, maintains `.cursor/scratch/active-session.txt`, ensures scratch is
+ignored by git, and defines **Delegation to subagents** (handoff sections,
+clarification gate, and parent-thread output contract for planner/coder/reviewer).
 The main dispatcher reads the pointer and `current-handoff.md`, optionally reads
 targeted excerpts from `session-log.md`, then passes a curated prompt to exactly
 one subagent. Subagents trust that curated prompt by default; they reread

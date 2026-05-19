@@ -6,32 +6,45 @@ Start or switch the active task session explicitly.
 
 `/begin-session task: <kebab-case-task-id> <task context, goals, constraints, and acceptance criteria>`
 
+`/begin-session use previous task brief`
+
 Example:
 
 `/begin-session task: p1-04-alert-threshold-hotfix fix alert threshold bug on current branch; preserve existing API; add regression coverage`
 
+`/begin-session use previous task brief`
+
 ## Behavior
 
-1. Resolve current git context:
+1. Resolve task context:
+   - If invoked as `use previous task brief`, read
+     `.cursor/scratch/task-brief.md`.
+   - Use its `Suggested task id` as `<task_id>` and its structured sections as
+     durable task context.
+   - If the brief is missing, stale, lacks a usable task id, or has open
+     questions that materially change scope/safety, ask for clarification before
+     creating a session.
+   - Otherwise use the explicit `task: <kebab-case-task-id>` and inline context.
+2. Resolve current git context:
    - branch name
    - short commit SHA
-2. Build canonical session directory:
+3. Build canonical session directory:
    - `.cursor/scratch/sessions/<task_id>__<sanitized-branch>__<short-sha>/`
-3. Ensure `.cursor/scratch/.gitignore` exists with:
+4. Ensure `.cursor/scratch/.gitignore` exists with:
 
 ```text
 *
 !.gitignore
 ```
 
-4. Ensure `.cursor/scratch/` is ignored by the target repo:
+5. Ensure `.cursor/scratch/` is ignored by the target repo:
    - If the workspace has a root `.gitignore`, add `.cursor/scratch/` only if
      an equivalent ignore is missing.
    - If there is no root `.gitignore`, create one with `.cursor/scratch/`.
    - If any `.cursor/scratch/` files are already tracked by git, report that
      blocker; `.gitignore` does not untrack existing tracked files.
 
-5. Create `current-handoff.md` in the session directory if missing with this
+6. Create `current-handoff.md` in the session directory if missing with this
    scaffold:
 
 ```text
@@ -56,7 +69,7 @@ Changed files: none
 Log reference: session-log.md#task
 ```
 
-6. Create `session-log.md` in the session directory if missing with this scaffold:
+7. Create `session-log.md` in the session directory if missing with this scaffold:
 
 ```text
 ---
@@ -71,6 +84,8 @@ handoff_path: .cursor/scratch/sessions/<session-id>/current-handoff.md
 
 # Task
 <task-specific context from command: goals, constraints, acceptance criteria, relevant notes>
+
+<!-- If created from /task-brief, paste the structured task brief here. -->
 
 # Plan
 (planner keeps one active implementation contract here: goal, approach, decisions, behavior slices, files, tests, risks)
@@ -91,7 +106,7 @@ handoff_path: .cursor/scratch/sessions/<session-id>/current-handoff.md
 - <ISO8601> [begin-session] Session started.
 ```
 
-7. Update active pointer file:
+8. Update active pointer file:
    - `.cursor/scratch/active-session.txt`
    - contents:
 
@@ -106,7 +121,7 @@ git_ref: <branch>@<short-sha>
 `path:` is retained as a legacy compatibility alias for `log_path` while older
 session prompts are phased out.
 
-8. If active pointer already references a different task, do not archive/discard
+9. If active pointer already references a different task, do not archive/discard
    anything automatically; just switch pointer and report the old/new paths.
 
 ## Main conversation role
