@@ -15,38 +15,46 @@ Example:
 1. Read `.cursor/scratch/active-session.txt`.
 2. Verify active `task_id` matches requested task.
    - If mismatch, ask for confirmation before proceeding.
-3. Read canonical session file from active pointer.
-4. Update frontmatter before closing:
+3. Read `handoff_path` and `log_path` from the active pointer.
+   - If only legacy `path:` exists, treat it as a monolithic session log and use
+     the legacy single-file close path.
+4. Update frontmatter in `current-handoff.md` and `session-log.md` before closing:
    - `last_updated: <ISO8601 now>`
    - `last_agent: end-session`
    - `status: completed`
-5. Append iteration log entry:
+5. Update `current-handoff.md` before closing:
+   - `Status: completed`
+   - `Next action: none`
+   - preserve concise final validation / changed-file context when already present
+6. Append iteration log entry to `session-log.md`:
 
 ```text
 - <ISO8601> [end-session] Session ended. <optional note>
 ```
 
-6. Move canonical session file (native move; no read+rewrite) to:
-   - `session-archive/<filename>.md`
-7. Clear active pointer by rewriting `.cursor/scratch/active-session.txt`:
+7. Move the whole session directory (native move; no read+rewrite) to:
+   - `.cursor/scratch/session-archive/<session-directory-name>/`
+8. Clear active pointer by rewriting `.cursor/scratch/active-session.txt`:
 
 ```text
 task_id: (none)
+handoff_path: (none)
+log_path: (none)
 path: (none)
 git_ref: (none)
 ```
 
-8. Never archive/discard any other session files.
+9. Never archive/discard any other session files.
 
 ## File operation policy (required)
 
 - Prefer filesystem-native move/rename operations for archiving.
 - Use shell-native move commands (`mv` on POSIX, `Move-Item` on PowerShell)
-  when moving the canonical session file.
+  when moving the session directory.
 - Do not create archive files by reading session content and rewriting it to a
   new destination path.
-- If metadata must be updated before close, edit the canonical file in place
-  once, then move that same file object.
+- If metadata must be updated before close, edit `current-handoff.md` and
+  `session-log.md` in place, then move that same directory object.
 - Verify move success by confirming the source path is absent and destination
   path exists.
 - If native move fails (for example, cross-device), report the blocker and ask
@@ -56,5 +64,5 @@ git_ref: (none)
 
 Return:
 - ended task id
-- archived file path
+- archived session directory path
 - whether active pointer was cleared

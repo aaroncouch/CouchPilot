@@ -15,8 +15,8 @@ Example:
 1. Resolve current git context:
    - branch name
    - short commit SHA
-2. Build canonical session path:
-   - `.cursor/scratch/sessions/<task_id>__<sanitized-branch>__<short-sha>.md`
+2. Build canonical session directory:
+   - `.cursor/scratch/sessions/<task_id>__<sanitized-branch>__<short-sha>/`
 3. Ensure `.cursor/scratch/.gitignore` exists with:
 
 ```text
@@ -31,7 +31,8 @@ Example:
    - If any `.cursor/scratch/` files are already tracked by git, report that
      blocker; `.gitignore` does not untrack existing tracked files.
 
-5. Create the canonical session file if missing with this scaffold:
+5. Create `current-handoff.md` in the session directory if missing with this
+   scaffold:
 
 ```text
 ---
@@ -41,16 +42,41 @@ last_updated: <ISO8601 now>
 last_agent: begin-session
 status: in-progress
 git_ref: <branch>@<short-sha>
+log_path: .cursor/scratch/sessions/<session-id>/session-log.md
+---
+
+# Current handoff
+Status: planning
+Active plan: none
+Next action: Hand off to a planner unless the operator explicitly chooses direct coding.
+Scope: <one sentence task boundary>
+Open risks: none
+Validation: not run
+Changed files: none
+Log reference: session-log.md#task
+```
+
+6. Create `session-log.md` in the session directory if missing with this scaffold:
+
+```text
+---
+task_id: <task_id>
+started_at: <ISO8601 now>
+last_updated: <ISO8601 now>
+last_agent: begin-session
+status: in-progress
+git_ref: <branch>@<short-sha>
+handoff_path: .cursor/scratch/sessions/<session-id>/current-handoff.md
 ---
 
 # Task
 <task-specific context from command: goals, constraints, acceptance criteria, relevant notes>
 
 # Plan
-(planner fills: execution strategy only—goal, approach, slices as behavior, files, tests, risks)
+(planner keeps one active implementation contract here: goal, approach, decisions, behavior slices, files, tests, risks)
 
 # Dispatch recommendations
-(planner fills: next action, complexity signals, review need, and handoff context only—user/operator reads this, not the coding subagent)
+(planner keeps this compact: next action, review need, and scope source only; user/operator reads this, not coding subagents)
 
 # Implementation notes
 (coder appends changed files, validation results, blockers, and slice completion notes)
@@ -65,17 +91,22 @@ git_ref: <branch>@<short-sha>
 - <ISO8601> [begin-session] Session started.
 ```
 
-6. Update active pointer file:
+7. Update active pointer file:
    - `.cursor/scratch/active-session.txt`
    - contents:
 
 ```text
 task_id: <task_id>
-path: .cursor/scratch/sessions/<task_id>__<sanitized-branch>__<short-sha>.md
+handoff_path: .cursor/scratch/sessions/<session-id>/current-handoff.md
+log_path: .cursor/scratch/sessions/<session-id>/session-log.md
+path: .cursor/scratch/sessions/<session-id>/session-log.md
 git_ref: <branch>@<short-sha>
 ```
 
-7. If active pointer already references a different task, do not archive/discard
+`path:` is retained as a legacy compatibility alias for `log_path` while older
+session prompts are phased out.
+
+8. If active pointer already references a different task, do not archive/discard
    anything automatically; just switch pointer and report the old/new paths.
 
 ## Main conversation role
@@ -87,7 +118,7 @@ a coding agent. It may act only as:
 2. **Session Q&A** — answer questions about the active session, plan, git context,
    or workflow; inspect the repo only as needed to answer.
 3. **Session curator** — when the operator asks to change a specific session
-   section, edit the active canonical session file directly so they do not need a
+   section, edit the active handoff or log file directly so they do not need a
    small subagent round-trip.
 
 ### No product code unless explicitly assigned to main chat
@@ -101,8 +132,30 @@ operator explicitly assigns that work to the main chat and names the files (for
 example: “update CHANGELOG for this release”). Otherwise offer to dispatch to a
 specialist subagent or ask which one to use.
 
-Subagents own planning (into session sections), implementation, and review. The
+Subagents own planning persistence, implementation persistence, and review
+persistence after their role work completes. The
 session main agent workspace rule restates this for every turn.
+
+## Split session discipline
+
+`current-handoff.md` is the read-first current truth. The main dispatcher reads
+it, optionally reads targeted excerpts from `session-log.md`, and sends the
+subagent a curated prompt. Subagents should trust the curated prompt by default
+and update `current-handoff.md` at the end of their role.
+
+`session-log.md` is append-oriented history and detailed state. Read it only when
+the handoff references a specific section, when the dispatcher needs a targeted
+active plan excerpt, or when history is required.
+
+All top-level `#` headings in `session-log.md` are singletons. Do not create
+duplicate `# Plan`, `# Implementation notes`, `# Findings`, or other top-level
+session sections. Use dated or versioned `##` entries inside the existing
+section when history is needed. If duplicates already exist, write to the first
+matching section and report that session compaction is recommended.
+
+Detailed history is supporting evidence. Do not pass or read full historical
+sections by default when `current-handoff.md` plus the relevant active log
+excerpt is enough.
 
 ## Delegation to subagents (planner / coder / reviewer)
 
@@ -121,12 +174,14 @@ Subagents own only their narrow role. They must not create or switch sessions, m
 Build the delegated prompt using only these sections:
 
 1. `Task ID` (required when available as `task: <slug>`)
-2. `Goal` (what outcome is needed)
-3. `Scope` (allowed files/constraints)
-4. `Acceptance criteria` (definition of done)
-5. `Gates` (commands to run, if provided)
-6. `Report` (what to return)
-7. `Session intent` (one of: `resume-existing`, `replace-existing`)
+2. `Current handoff` (copy only compact fields from `current-handoff.md`)
+3. `Goal` (what outcome is needed)
+4. `Scope` (allowed files/constraints)
+5. `Acceptance criteria` (definition of done)
+6. `Active plan excerpt` (only the relevant active `session-log.md#plan` subsection, if needed)
+7. `Gates` (commands to run, if provided)
+8. `Report` (what to return)
+9. `Session intent` (one of: `resume-existing`, `replace-existing`)
 
 Do not include generic workflow scaffolding already owned by the target
 subagent (for example: inspect-first reminders, session-file mechanics,
@@ -150,7 +205,10 @@ authorization for the dispatcher to pick a model or subagent.
 When dispatching:
 
 - Delegate exactly once to the requested subagent.
-- Pass only task-specific context.
+- Pass only task-specific context: prefer `current-handoff.md`, task essentials,
+  and the active plan excerpt over full historical sections.
+- Do not require the subagent to reread `current-handoff.md` on the normal
+  dispatched path. The curated prompt is the normal context source.
 - Do not add extra headers like `Workspace` or `Context` unless they contain
   critical information not otherwise captured in sections above.
 - Do not paste or paraphrase the subagent's output in the parent thread.
@@ -174,7 +232,9 @@ For session switching:
 
 Return:
 - active task id
-- canonical session path
+- session directory
+- current handoff path
+- session log path
 - whether created or reused
 - whether root `.gitignore` already ignored or now ignores `.cursor/scratch/`
 - previous active session path (if switched)

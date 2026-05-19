@@ -19,7 +19,7 @@ Then restart Cursor, open a Python project, and use the loop:
 
 ```text
 /begin-session task: feat-foo-module implement foo workflow; include goals, constraints, and acceptance criteria here
-# Then delegate from the main chat (see /begin-session → Delegation to subagents), e.g. /planner-inherit, /python-coder-inherit, /reviewer-codex, with Goal / Scope / Acceptance / Gates / Report / Session intent.
+# Then delegate from the main chat. The dispatcher curates prompts from current-handoff.md plus targeted session-log.md excerpts.
 /end-session task: feat-foo-module completed
 ```
 
@@ -34,8 +34,8 @@ CouchPilot gives Cursor a reusable working style:
 - Delegate to a planner for a concrete implementation plan.
 - Delegate that plan to a Python-focused coding subagent.
 - Delegate the diff to a reviewer subagent.
-- Keep the handoff notes in simple scratch files instead of re-explaining the
-  task every time.
+- Keep the current handoff and historical session log in simple scratch files
+  instead of re-explaining the task every time.
 
 The goal is not to build a heavy agent framework. It is a lightweight personal
 toolkit for keeping Cursor's help consistent across machines and projects.
@@ -119,8 +119,11 @@ the relevant agent file and run `python sync.py` again.
 
 ### Commands
 
-- `/begin-session` starts or switches the active task and defines **Delegation to subagents** (how the main chat delegates to planner, coder, or reviewer).
-- `/end-session` archives the active task and clears the pointer.
+- `/begin-session` starts or switches the active task, creates a session
+  directory with `current-handoff.md` and `session-log.md`, and defines
+  **Delegation to subagents** (how the main chat delegates to planner, coder, or
+  reviewer).
+- `/end-session` archives the active session directory and clears the pointer.
 - `/deslop-main-diff` runs an optional cleanup pass over branch changes.
 - `/deslop-workspace` runs an optional cleanup pass across the workspace.
 
@@ -130,8 +133,9 @@ Use one task ID for the whole loop. A short kebab-case slug works well:
 `task: feat-foo-module`. Put the durable task context in `/begin-session`:
 goals, constraints, acceptance criteria, relevant notes, and messy-but-useful
 task rambling. After the session starts, follow **Delegation to subagents** in
-`/begin-session` when delegating from the main chat; keep delegated prompts
-task-only (`Goal`, `Scope`, …).
+`/begin-session` when delegating from the main chat. The main dispatcher reads
+`current-handoff.md` first, pulls only targeted `session-log.md` excerpts when
+needed, and keeps delegated prompts task-only (`Goal`, `Scope`, …).
 
 1. Start the task.
 
@@ -169,7 +173,11 @@ task-only (`Goal`, `Scope`, …).
    /end-session task: feat-foo-module completed and merged
    ```
 
-Keep each delegated prompt short: use the section list in `/begin-session` → **Delegation to subagents**. If the full brief should be visible to every subagent, keep it in the session file via `/begin-session`; in the delegated message, carry only what that hop needs beyond `# Task` / `# Plan`.
+Keep each delegated prompt short: use the section list in `/begin-session` ->
+**Delegation to subagents**. If the full brief should be visible to every
+subagent, keep it in `session-log.md` via `/begin-session`; in the delegated
+message, carry only what that hop needs beyond the curated handoff and active
+plan excerpt.
 
 ## Workflow Examples
 
@@ -236,7 +244,10 @@ Rationale: Inherit across the loop keeps simple iteration cheap and quick.
 flowchart TD
   start["Start work"] --> begin["/begin-session &lt;task&gt;"]
   begin --> pointer["active-session.txt"]
-  begin --> session["Session file in .cursor/scratch/sessions/"]
+  pointer --> handoff["current-handoff.md"]
+  pointer --> logFile["session-log.md"]
+  begin --> handoff
+  begin --> logFile
   begin --> delegatePlan["Delegate from main chat"]
   delegatePlan --> plan["/planner-inherit, /planner-codex, or /planner-gpt55"]
   plan --> delegateCode["Delegate from main chat"]
@@ -248,9 +259,18 @@ flowchart TD
   iterate -- no --> endcmd["/end-session &lt;task&gt;"]
   plan -.->|"plan hands off to"| code
   code -.->|"changes can be sent to"| review
-  plan -->|"reads/writes active task via pointer"| session
-  code -->|"reads/writes active task via pointer"| session
-  review -->|"reads/writes active task via pointer"| session
+  delegatePlan -->|"reads current state"| handoff
+  delegatePlan -->|"reads targeted excerpts"| logFile
+  delegateCode -->|"reads current state"| handoff
+  delegateCode -->|"reads active plan excerpt"| logFile
+  delegateReview -->|"reads current state"| handoff
+  delegateReview -->|"reads targeted excerpts"| logFile
+  plan -->|"writes current state"| handoff
+  plan -->|"writes plan and dispatch context"| logFile
+  code -->|"writes current state"| handoff
+  code -->|"appends implementation notes"| logFile
+  review -->|"writes current state"| handoff
+  review -->|"writes findings"| logFile
   code -->|"reads on entry"| skill["Skill: python-style"]
   review -->|"reads when Python is in scope"| skill
   code -->|"edits .py files"| files["Python source"]
@@ -271,10 +291,13 @@ Think of the four Cursor pieces this way:
 
 Subagents are one-shot workers. They do not automatically remember what another
 subagent did earlier, so CouchPilot uses plain markdown scratch files as the
-handoff record.
+handoff record. The current state is split from the historical log so most
+dispatches do not need to carry the whole session history.
 
 - Active pointer: `.cursor/scratch/active-session.txt`
-- Task notes: `.cursor/scratch/sessions/*.md`
+- Current handoff: `.cursor/scratch/sessions/<session-id>/current-handoff.md`
+- Session log: `.cursor/scratch/sessions/<session-id>/session-log.md`
+- Ended sessions: `.cursor/scratch/session-archive/<session-id>/`
 - Tooling cache: `.cursor/scratch/tooling.md`
 
 **Workflow ownership:** slash commands own orchestration and pointer changes. In
@@ -282,12 +305,18 @@ particular, `/begin-session` creates the session scaffold, maintains
 `.cursor/scratch/active-session.txt`, ensures scratch is ignored by git, and
 defines **Delegation to subagents** (handoff sections, clarification gate, and
 parent-thread output contract for planner/coder/reviewer).
-Subagents read the pointer only to locate the active session file; they do not
-edit the pointer or recreate session infrastructure. Within the session file,
-planners write `# Plan` (execution only) and concise `# Dispatch recommendations`
-(next action, complexity signals, review need, and handoff context); coders
-append to `# Implementation notes`, `# Iteration log`, and `# Project notes`;
-reviewers write `# Findings` (and may append a line to `# Iteration log`).
+The main dispatcher reads the pointer and `current-handoff.md`, optionally reads
+targeted excerpts from `session-log.md`, then passes a curated prompt to exactly
+one subagent. Subagents trust that curated prompt by default; they reread
+handoff/log files only for fallback, direct invocation, conflicts, or safe merge
+before writing. Subagents do not edit the pointer or recreate session
+infrastructure.
+
+Within the split session files, planners update `current-handoff.md` and write
+`session-log.md#plan` plus concise `# Dispatch recommendations`; coders update
+`current-handoff.md` and append to implementation/project/iteration sections in
+`session-log.md`; reviewers update `current-handoff.md` and write
+`session-log.md#findings`.
 
 The Python coder may create `.cursor/scratch/tooling.md` in a target project to
 remember the formatter, linter, type checker, and test command it discovered.
@@ -295,7 +324,8 @@ remember the formatter, linter, type checker, and test command it discovered.
 scratch directory also gets its own `.gitignore`.
 
 This is intentionally not vector memory, semantic search, or cross-project
-learning. It is just one task at a time in markdown.
+learning. It is just one task at a time in markdown, with a small current
+handoff and a separate audit log.
 
 ## After Sync
 

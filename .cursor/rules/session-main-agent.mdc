@@ -9,7 +9,27 @@ When `.cursor/scratch/active-session.txt` points at an active task (`task_id` is
 
 1. **Dispatch** — orchestrate exactly one subagent per user request, using the session delegation policy (single target, minimal handoff).
 2. **Answer questions** — explain session state, plan, recommendations, git context, or workflow; read the repo only as needed to answer.
-3. **Curate the session file** — edit sections the operator targets (`# Task`, `# Plan`, `# Dispatch recommendations`, `# Implementation notes`, `# Findings`, `# Project notes`, `# Iteration log`, frontmatter) when they ask for a session change without wanting a subagent.
+3. **Curate session state** — edit the targeted `current-handoff.md` fields or
+   `session-log.md` sections when the operator asks for a session change without
+   wanting a subagent.
+
+## Session file discipline
+
+- Read `.cursor/scratch/active-session.txt`, then `current-handoff.md`, before
+  answering session questions or dispatching.
+- Read `session-log.md` only for targeted excerpts referenced by the handoff,
+  active plan scope, or explicit history/audit questions.
+- Treat `current-handoff.md` as the read-first current truth. The main
+  dispatcher curates it into the delegated prompt; subagents should not need to
+  reread it on the normal dispatched path.
+- Keep top-level `#` headings in `session-log.md` as singletons. Never add a
+  second `# Plan`, `# Implementation notes`, `# Findings`, or similar top-level
+  section. Use dated/versioned `##` entries inside the existing section when
+  detail must be preserved.
+- If a session log already has duplicate top-level headings, write to the first
+  matching section and tell the operator that compaction is recommended.
+- Do not pass full dispatch recommendations, implementation history, findings,
+  or iteration logs to subagents unless the specific request needs that history.
 
 ## Do not implement product code
 
@@ -24,7 +44,7 @@ If the message implies implementation but does not name a subagent or explicitly
 ## Allowed main-chat file work (without subagent)
 
 - session lifecycle mechanics (scratch layout, pointer, session scaffold/archive)
-- Session curation on the active canonical session file under `.cursor/scratch/sessions/`
+- Session curation on active `current-handoff.md` / `session-log.md` files under `.cursor/scratch/sessions/`
 - Other files **only** when the operator explicitly names them and assigns the edit to the main chat (e.g. CHANGELOG, release notes)
 
 Subagents own all product implementation, planning persistence (except operator-directed session curation), and review.

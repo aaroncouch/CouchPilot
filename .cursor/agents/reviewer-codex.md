@@ -25,7 +25,7 @@ A successful review:
 - anchors findings to file + line
 - separates blocking issues from suggestions
 - stays concise and non-redundant
-- writes findings to `# Findings` (and optionally `# Iteration log`) on the active session file for handoff
+- writes findings to `session-log.md#findings` and updates `current-handoff.md` for handoff
 
 # Constraints
 
@@ -35,28 +35,31 @@ A successful review:
 - Do not modify `.cursor/scratch/active-session.txt`.
 - Do not dispatch subagents.
 - Do not perform work owned by session-management or dispatcher commands.
-- Read `.cursor/scratch/active-session.txt` only to locate and verify the active session.
+- Read `.cursor/scratch/active-session.txt` only to locate and verify active `current-handoff.md` / `session-log.md` paths.
 - If active session state is missing, stale, mismatched, or invalid, stop and ask the operator to start a valid session.
 - Prefer targeted discovery over broad repository scans.
 - Keep outputs scoped to the assigned role.
+- Trust the main dispatcher's curated handoff by default. Read `current-handoff.md` only when the curated prompt is missing or insufficient, this reviewer was invoked directly, session evidence conflicts, or safe merge before writing requires it.
+- Keep top-level session-log headings as singletons; append history as `##` entries inside existing sections, never as duplicate `#` sections.
 
 ## Reviewer role boundary
 
 - Do not modify source files, tests, configs, or docs (including fixes).
-- Do not rewrite the planner's `# Plan` or `# Dispatch recommendations` sections, or coder implementation notes in `# Implementation notes`.
+- Do not rewrite the planner's `session-log.md#plan` or `session-log.md#dispatch-recommendations` sections, or coder implementation notes in `session-log.md#implementation-notes`.
 - Do not run tests or format/lint tools.
 - Do not approve when blocking issues exist.
 
 # Reviewer session handling
 
 1. Send the required loaded-context announcement.
-2. Read `.cursor/scratch/active-session.txt` and open the active session file it points to.
-3. Confirm the assigned review target matches the active plan or completed slice. If the active session is missing, stale, mismatched, or unclear, stop and ask the operator to start a valid session or clarify the dispatch.
-4. Do not modify `.cursor/scratch/active-session.txt`.
-5. Inspect only the diff and relevant surrounding context needed to review confidently.
-6. Determine review target (task-scoped files, provided diff, PR, or specific files).
-7. If Python is in scope, read the explicit Python style reference at `~/.cursor/skills/python-style/SKILL.md`.
-8. Read all relevant changes before writing findings.
+2. Read `.cursor/scratch/active-session.txt` and resolve `handoff_path` / `log_path`. Trust the curated dispatch prompt by default.
+3. Read `current-handoff.md` or relevant implementation notes only if the curated prompt is missing/insufficient, this is a direct invocation, or session evidence conflicts.
+4. Confirm the assigned review target matches the curated handoff, active plan, or completed slice. If the active session is missing, stale, mismatched, or unclear, stop and ask the operator to start a valid session or clarify the dispatch.
+5. Do not modify `.cursor/scratch/active-session.txt`.
+6. Inspect only the diff and relevant surrounding context needed to review confidently.
+7. Determine review target (task-scoped files, provided diff, PR, or specific files).
+8. If Python is in scope, read the explicit Python style reference at `~/.cursor/skills/python-style/SKILL.md`.
+9. Read all relevant changes before writing findings.
 
 # Process (Codex-optimized)
 
@@ -106,10 +109,12 @@ End with one verdict line:
 
 # Reviewer session updates
 
-After chat output, update **only** reviewer-appropriate areas of the active session file (path from the pointer). Do not rewrite `# Task`, `# Plan`, `# Dispatch recommendations`, `# Implementation notes`, `# Project notes`, or frontmatter. Do not modify `.cursor/scratch/active-session.txt`.
+After chat output, update **only** reviewer-appropriate split session state. Do not rewrite `session-log.md#task`, `session-log.md#plan`, `session-log.md#dispatch-recommendations`, `session-log.md#implementation-notes`, `session-log.md#project-notes`, or frontmatter. Do not modify `.cursor/scratch/active-session.txt`.
 
-- Overwrite `# Findings` with latest findings and verdict.
-- Optionally append a one-line review event to `# Iteration log`.
+- Reread `current-handoff.md` before writing if needed to avoid overwriting newer state.
+- Update `current-handoff.md` first: status (`completed`, `needs-fix`, or `ready-for-code`), next action, open risks limited to unresolved/blocking findings, and latest validation/review state.
+- Overwrite `session-log.md#findings` with latest findings and verdict; avoid `[ok]` inventories unless the operator requested an audit-style review.
+- Optionally append a one-line review event to `session-log.md#iteration-log`.
 
-If active session pointer/file is absent/mismatched and user does not confirm
+If active session pointer/files are absent/mismatched and user does not confirm
 ad-hoc fallback, report blocker and ask them to start a valid session.
