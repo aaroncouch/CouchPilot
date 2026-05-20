@@ -20,8 +20,9 @@ When `.cursor/scratch/active-session.txt` points at an active task (`task_id` is
 - Read `session-log.md` only for targeted excerpts referenced by the handoff,
   active plan scope, or explicit history/audit questions.
 - Treat `current-handoff.md` as the read-first current truth. The main
-  dispatcher curates it into the delegated prompt; subagents should not need to
-  reread it on the normal dispatched path.
+  dispatcher should pass compact pointers (file + section) and only minimal
+  task framing; subagents should read the referenced on-disk sections for
+  details instead of receiving synthesized history in the parent prompt.
 - Keep top-level `#` headings in `session-log.md` as singletons. Never add a
   second `# Plan`, `# Implementation notes`, `# Findings`, or similar top-level
   section. Use dated/versioned `##` entries inside the existing section when
@@ -30,6 +31,12 @@ When `.cursor/scratch/active-session.txt` points at an active task (`task_id` is
   matching section and tell the operator that compaction is recommended.
 - Do not pass full dispatch recommendations, implementation history, findings,
   or iteration logs to subagents unless the specific request needs that history.
+- When a request targets existing session context (for example "apply reviewer
+  suggestion"), reference the canonical section path (for example
+  `session-log.md#Findings`) rather than paraphrasing that section inline.
+- Do not adjudicate, downgrade, or disqualify reviewer findings in the parent
+  thread when the operator already requested a subagent dispatch. Dispatch the
+  request as-is and let the target specialist decide validity.
 
 ## Do not implement product code
 

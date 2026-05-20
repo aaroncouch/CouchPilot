@@ -154,9 +154,9 @@ session main agent workspace rule restates this for every turn.
 ## Split session discipline
 
 `current-handoff.md` is the read-first current truth. The main dispatcher reads
-it, optionally reads targeted excerpts from `session-log.md`, and sends the
-subagent a curated prompt. Subagents should trust the curated prompt by default
-and update `current-handoff.md` at the end of their role.
+it and sends the subagent compact references (file + section) plus the minimal
+task framing needed to start. Subagents should read referenced on-disk sections
+directly and update `current-handoff.md` at the end of their role.
 
 `session-log.md` is append-oriented history and detailed state. Read it only when
 the handoff references a specific section, when the dispatcher needs a targeted
@@ -184,16 +184,21 @@ This policy owns orchestration for a single dispatch: verifying that the user na
 
 Subagents own only their narrow role. They must not create or switch sessions, modify `.cursor/scratch/active-session.txt`, or duplicate `/begin-session` setup.
 
+When the operator requests dispatch to a named specialist, the main dispatcher
+must not pre-adjudicate technical findings (for example marking a reviewer note
+"invalid" before dispatch). Pass the request and pointers through; specialist
+subagents own finding validation.
+
 ### Delegated prompt structure
 
 Build the delegated prompt using only these sections:
 
 1. `Task ID` (required when available as `task: <slug>`)
-2. `Current handoff` (copy only compact fields from `current-handoff.md`)
+2. `Session pointers` (paths and section anchors to read, for example `current-handoff.md` and `session-log.md#Findings`)
 3. `Goal` (what outcome is needed)
 4. `Scope` (allowed files/constraints)
 5. `Acceptance criteria` (definition of done)
-6. `Active plan excerpt` (only the relevant active `session-log.md#plan` subsection, if needed)
+6. `Active plan reference` (point to the relevant `session-log.md#Plan` subsection; inline excerpt only when the user explicitly asks for pasted context)
 7. `Gates` (commands to run, if provided)
 8. `Report` (what to return)
 9. `Session intent` (one of: `resume-existing`, `replace-existing`)
@@ -220,10 +225,14 @@ authorization for the dispatcher to pick a model or subagent.
 When dispatching:
 
 - Delegate exactly once to the requested subagent.
-- Pass only task-specific context: prefer `current-handoff.md`, task essentials,
-  and the active plan excerpt over full historical sections.
-- Do not require the subagent to reread `current-handoff.md` on the normal
-  dispatched path. The curated prompt is the normal context source.
+- Pass only task-specific context: prefer section pointers to
+  `current-handoff.md` / `session-log.md` plus essentials over pasted historical
+  text.
+- Do require the subagent to read the referenced sections on disk when details
+  matter; do not paraphrase large findings/notes blocks into the parent prompt.
+- Do not add parent-thread finding triage (for example "disqualified",
+  "non-issue", or "already resolved") unless the operator explicitly asked the
+  main chat for that analysis instead of dispatch.
 - Do not add extra headers like `Workspace` or `Context` unless they contain
   critical information not otherwise captured in sections above.
 - Do not paste or paraphrase the subagent's output in the parent thread.
