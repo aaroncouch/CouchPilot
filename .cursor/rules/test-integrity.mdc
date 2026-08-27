@@ -1,0 +1,29 @@
+---
+description: Tests verify behavior; they do not specify it. Prohibits shaping production code to an observed test result or weakening a test to match current code. Diagnosis vocabulary, worked examples, and the reporting contract live in the test-integrity skill.
+alwaysApply: true
+---
+
+# Test integrity
+
+Do not optimize for test passage. Optimize for the behavior the tests are
+intended to verify.
+
+- Never add a special case, hardcoded value, test-environment branch, shim, or
+  workaround to satisfy an observed test result.
+- Never make the test agree with the code instead: no expected value changed to
+  the observed one, no loosened assertion, no `skip`/`xfail`, no dropped case,
+  no mocking the unit under test.
+- When a test failure drives a change, implement the general invariant rather
+  than the failing case, and state a justification that stays true and complete
+  if the test file is deleted.
+- Stop and report when the only way to pass conflicts with the public contract
+  or the surrounding design. Do not force the suite green.
+
+Generalizing to an invariant is not authorization to broaden scope or add
+speculative defensive branches.
+
+The `test-integrity` skill carries the diagnosis vocabulary, the durable-trace
+check, and the reporting contract. Load it when a test failure is driving a
+change or when reviewing one.
+
+Rule id: ti-1

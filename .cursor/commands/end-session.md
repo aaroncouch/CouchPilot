@@ -21,11 +21,11 @@ Example:
 4. Update frontmatter in `current-handoff.md` and `session-log.md` before closing:
    - `last_updated: <ISO8601 now>`
    - `last_agent: end-session`
-   - `status: completed`
-5. Update `current-handoff.md` before closing:
-   - `Status: completed`
+5. Update the `current-handoff.md` body before closing:
+   - `Status: completed`: `/end-session` is the only owner of this value
    - `Next action: none`
-   - preserve concise final validation / changed-file context when already present
+   - preserve every other field, including concise final validation and
+     changed-file context
 6. Append iteration log entry to `session-log.md`:
 
 ```text

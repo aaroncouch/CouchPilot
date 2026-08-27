@@ -1,57 +1,44 @@
 ---
-description: Main-chat role during an active CouchPilot session—dispatch, Q&A, and session curation only; no product code unless explicitly requested.
+description: What the main chat may and may not do while a CouchPilot session is active. Dispatch, Q&A, and session curation only, with no product code unless explicitly assigned.
 alwaysApply: true
 ---
 
 # Session main agent
 
-When `.cursor/scratch/active-session.txt` points at an active task (`task_id` is not `(none)`), the **main conversation** (parent thread—not a delegated subagent) may only:
+**Inert unless a session is active.** If `.cursor/scratch/active-session.txt`
+does not exist, or its `task_id` is `(none)`, ignore this rule and work
+normally. Do not create the file; its absence is not a problem.
 
-1. **Dispatch** — orchestrate exactly one subagent per user request, using the session delegation policy (single target, minimal handoff).
-2. **Answer questions** — explain session state, plan, recommendations, git context, or workflow; read the repo only as needed to answer.
-3. **Curate session state** — edit the targeted `current-handoff.md` fields or
-   `session-log.md` sections when the operator asks for a session change without
-   wanting a subagent.
+**Parent thread only.** A delegated subagent is governed by its own agent file
+and by `session-files`. Ignore this rule, and do not read it as authorization
+for anything. It reaches you because Cursor has no per-agent rule scoping, not
+because it applies to you.
 
-## Session file discipline
+With an active task, the main conversation may only:
 
-- Read `.cursor/scratch/active-session.txt`, then `current-handoff.md`, before
-  answering session questions or dispatching.
-- Read `session-log.md` only for targeted excerpts referenced by the handoff,
-  active plan scope, or explicit history/audit questions.
-- Treat `current-handoff.md` as the read-first current truth. The main
-  dispatcher should pass compact pointers (file + section) and only minimal
-  task framing; subagents should read the referenced on-disk sections for
-  details instead of receiving synthesized history in the parent prompt.
-- Keep top-level `#` headings in `session-log.md` as singletons. Never add a
-  second `# Plan`, `# Implementation notes`, `# Findings`, or similar top-level
-  section. Use dated/versioned `##` entries inside the existing section when
-  detail must be preserved.
-- If a session log already has duplicate top-level headings, write to the first
-  matching section and tell the operator that compaction is recommended.
-- Do not pass full dispatch recommendations, implementation history, findings,
-  or iteration logs to subagents unless the specific request needs that history.
-- When a request targets existing session context (for example "apply reviewer
-  suggestion"), reference the canonical section path (for example
-  `session-log.md#Findings`) rather than paraphrasing that section inline.
-- Do not adjudicate, downgrade, or disqualify reviewer findings in the parent
-  thread when the operator already requested a subagent dispatch. Dispatch the
-  request as-is and let the target specialist decide validity.
+1. **Dispatch**: delegate to exactly one named subagent per request. The
+   `session-dispatch` rule owns how.
+2. **Answer questions**: session state, plan, git context, or workflow.
+3. **Curate session state**: edit `current-handoff.md` or `session-log.md`
+   when the operator wants a change without a subagent round-trip.
 
-## Do not implement product code
+## No product code
 
-Unless the operator **explicitly** asks the main chat to change specific files (for example: “update CHANGELOG for this release”), do **not**:
+Do not create, edit, or delete source, test, config, or build files because the
+operator described work, reported a bug, or quoted a plan slice. Casual or
+plan-shaped messages are not implementation authorization.
 
-- create, edit, or delete source, test, config, or build files outside `.cursor/scratch/`
-- run implementation work because the message sounds like a feature request, bug report, or plan step
-- “get started” on a slice, fix, or refactor without a named subagent dispatch or an explicit main-chat edit request
+Edit product files from the main chat **only** when the operator explicitly
+assigns that work to the main chat and names the files (for example "update
+CHANGELOG for this release"). Otherwise ask which subagent to dispatch.
 
-If the message implies implementation but does not name a subagent or explicitly assign code edits to the main chat, **stop** and either ask which subagent to dispatch or confirm they want a main-chat edit to named files.
+Always allowed without a subagent: session lifecycle mechanics, curation of
+active session files, and explicitly named non-source files.
 
-## Allowed main-chat file work (without subagent)
+## Session files
 
-- session lifecycle mechanics (scratch layout, pointer, session scaffold/archive)
-- Session curation on active `current-handoff.md` / `session-log.md` files under `.cursor/scratch/sessions/`
-- Other files **only** when the operator explicitly names them and assigns the edit to the main chat (e.g. CHANGELOG, release notes)
+Read `active-session.txt`, then `current-handoff.md`, before answering a session
+question or dispatching. The `session-files` rule owns the rest: read order,
+heading singletons, field preservation, and who may touch the pointer.
 
-Subagents own all product implementation, planning persistence (except operator-directed session curation), and review.
+Rule id: sma-1

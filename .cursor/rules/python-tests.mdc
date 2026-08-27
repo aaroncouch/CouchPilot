@@ -1,6 +1,6 @@
 ---
 description: Testing standards for Python test files (pytest, fixtures, regression coverage, determinism).
-globs: "**/tests/**/*.py"
+globs: **/tests/**/*.py,**/test_*.py,**/*_test.py,**/conftest.py
 alwaysApply: false
 ---
 
@@ -34,6 +34,18 @@ are enforced globally by the quality rule.
 - Tests assert on observable behavior, not on internal call sequences, unless
   the call sequence is the contract.
 
+## Tests are not the specification
+
+The `test-integrity` rule governs this in full. In test files specifically:
+
+- Never change an expected value to the observed one. If the expectation is
+  wrong, name the source that makes it wrong; the current implementation is not
+  a source.
+- Never loosen an assertion, widen a tolerance, add `skip`/`xfail`, or drop a
+  parametrize case to get past a failure.
+- Mock collaborators, never the unit under test. A test that passes when the
+  unit is deleted asserts nothing.
+
 ## Determinism and isolation
 
 - Tests are deterministic: no real network, no real clock unless frozen, no
@@ -45,7 +57,11 @@ are enforced globally by the quality rule.
 ## Quality
 
 - Tests are code too: same typing, naming, and clarity standards as production
-  code.
+  code, and the same pylint contract from the `python` rule.
+- `W0621` redefined-outer-name fires constantly on fixtures used as parameters.
+  That is the pytest idiom, not a defect. Leave it to project config rather
+  than adding a disable comment.
 - Run `pylint` over the test directory; treat findings as blocking unless the
   user has explicitly accepted a relaxed config for tests.
 
+Rule id: pyt-1

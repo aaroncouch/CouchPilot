@@ -53,21 +53,27 @@ task_id: <task_id>
 started_at: <ISO8601 now>
 last_updated: <ISO8601 now>
 last_agent: begin-session
-status: in-progress
 git_ref: <branch>@<short-sha>
 log_path: .cursor/scratch/sessions/<session-id>/session-log.md
 ---
 
 # Current handoff
+
 Status: planning
+Status vocabulary: planning | ready-for-code | ready-for-review | needs-fix | ready-to-close | blocked | completed
 Active plan: none
-Next action: Hand off to a planner unless the operator explicitly chooses direct coding.
+Next action: Hand off to /planner unless the operator explicitly chooses direct coding.
+Review need: normal
 Scope: <one sentence task boundary>
 Open risks: none
 Validation: not run
 Changed files: none
 Log reference: session-log.md#task
 ```
+
+   Every agent that writes this file preserves all fields and updates values
+   only. `Status vocabulary` is written once here so the file documents its own
+   allowed values even when rules do not reach a subagent.
 
 7. Create `session-log.md` in the session directory if missing with this scaffold:
 
@@ -77,7 +83,6 @@ task_id: <task_id>
 started_at: <ISO8601 now>
 last_updated: <ISO8601 now>
 last_agent: begin-session
-status: in-progress
 git_ref: <branch>@<short-sha>
 handoff_path: .cursor/scratch/sessions/<session-id>/current-handoff.md
 ---
@@ -89,9 +94,6 @@ handoff_path: .cursor/scratch/sessions/<session-id>/current-handoff.md
 
 # Plan
 (planner keeps one active implementation contract here: goal, approach, decisions, behavior slices, files, tests, risks)
-
-# Dispatch recommendations
-(planner keeps this compact: next action, review need, and scope source only; user/operator reads this, not coding subagents)
 
 # Implementation notes
 (coder appends changed files, validation results, blockers, and slice completion notes)
@@ -126,131 +128,12 @@ session prompts are phased out.
 
 ## Main conversation role
 
-While an active task pointer exists, the **main chat** (parent thread) is **not**
-a coding agent. It may act only as:
+While an active task pointer exists, the main chat is a dispatcher, not a coding
+agent. The `session-main-agent` rule owns that policy in full: the role
+boundary, session-file discipline, and the dispatch contract. It applies because
+re-enters context every turn, while this command's text is injected only once.
 
-1. **Dispatcher** — delegate to exactly one named subagent per request (see below).
-2. **Session Q&A** — answer questions about the active session, plan, git context,
-   or workflow; inspect the repo only as needed to answer.
-3. **Session curator** — when the operator asks to change a specific session
-   section, edit the active handoff or log file directly so they do not need a
-   small subagent round-trip.
-
-### No product code unless explicitly assigned to main chat
-
-Do **not** create, edit, or delete source, test, config, or build files because
-the operator described work, reported a bug, or quoted a plan slice. Casual or
-plan-shaped messages are **not** implementation authorization.
-
-**Do** implement or edit product/repo files in the main chat **only** when the
-operator explicitly assigns that work to the main chat and names the files (for
-example: “update CHANGELOG for this release”). Otherwise offer to dispatch to a
-specialist subagent or ask which one to use.
-
-Subagents own planning persistence, implementation persistence, and review
-persistence after their role work completes. The
-session main agent workspace rule restates this for every turn.
-
-## Split session discipline
-
-`current-handoff.md` is the read-first current truth. The main dispatcher reads
-it and sends the subagent compact references (file + section) plus the minimal
-task framing needed to start. Subagents should read referenced on-disk sections
-directly and update `current-handoff.md` at the end of their role.
-
-`session-log.md` is append-oriented history and detailed state. Read it only when
-the handoff references a specific section, when the dispatcher needs a targeted
-active plan excerpt, or when history is required.
-
-All top-level `#` headings in `session-log.md` are singletons. Do not create
-duplicate `# Plan`, `# Implementation notes`, `# Findings`, or other top-level
-session sections. Use dated or versioned `##` entries inside the existing
-section when history is needed. If duplicates already exist, write to the first
-matching section and report that session compaction is recommended.
-
-Detailed history is supporting evidence. Do not pass or read full historical
-sections by default when `current-handoff.md` plus the relevant active log
-excerpt is enough.
-
-## Delegation to subagents (planner / coder / reviewer)
-
-The main conversation owns orchestration for each delegation. After `/begin-session`,
-apply this policy whenever the operator delegates from the main chat to a planner,
-coder, or reviewer.
-
-### Ownership (workflow vs specialist work)
-
-This policy owns orchestration for a single dispatch: verifying that the user named exactly one target subagent, reading task/session context when present, passing only the minimum required context, enforcing slice boundaries, and deciding whether the requested dispatch has enough information to proceed.
-
-Subagents own only their narrow role. They must not create or switch sessions, modify `.cursor/scratch/active-session.txt`, or duplicate `/begin-session` setup.
-
-When the operator requests dispatch to a named specialist, the main dispatcher
-must not pre-adjudicate technical findings (for example marking a reviewer note
-"invalid" before dispatch). Pass the request and pointers through; specialist
-subagents own finding validation.
-
-### Delegated prompt structure
-
-Build the delegated prompt using only these sections:
-
-1. `Task ID` (required when available as `task: <slug>`)
-2. `Session pointers` (paths and section anchors to read, for example `current-handoff.md` and `session-log.md#Findings`)
-3. `Goal` (what outcome is needed)
-4. `Scope` (allowed files/constraints)
-5. `Acceptance criteria` (definition of done)
-6. `Active plan reference` (point to the relevant `session-log.md#Plan` subsection; inline excerpt only when the user explicitly asks for pasted context)
-7. `Gates` (commands to run, if provided)
-8. `Report` (what to return)
-9. `Session intent` (one of: `resume-existing`, `replace-existing`)
-
-Do not include generic workflow scaffolding already owned by the target
-subagent (for example: inspect-first reminders, session-file mechanics,
-tooling discovery procedures, preamble policies, or loaded-context boilerplate).
-Loaded-context announcements are owned by the global
-`subagent-loaded-context.mdc` rule, not by the delegated prompt.
-
-### Clarification gate
-
-If the request does not include `/<subagent-name>`, do not choose one. Ask the
-user which subagent to dispatch.
-
-If the request names multiple subagents, do not dispatch. Ask the user to choose
-exactly one target for this command invocation.
-
-Planner notes in `# Dispatch recommendations` are context for the user, not
-authorization for the dispatcher to pick a model or subagent.
-
-### Output contract (parent thread)
-
-When dispatching:
-
-- Delegate exactly once to the requested subagent.
-- Pass only task-specific context: prefer section pointers to
-  `current-handoff.md` / `session-log.md` plus essentials over pasted historical
-  text.
-- Do require the subagent to read the referenced sections on disk when details
-  matter; do not paraphrase large findings/notes blocks into the parent prompt.
-- Do not add parent-thread finding triage (for example "disqualified",
-  "non-issue", or "already resolved") unless the operator explicitly asked the
-  main chat for that analysis instead of dispatch.
-- Do not add extra headers like `Workspace` or `Context` unless they contain
-  critical information not otherwise captured in sections above.
-- Do not paste or paraphrase the subagent's output in the parent thread.
-- After a successful dispatch, respond with exactly one line:
-  `Dispatched to /<subagent-name>.`
-- Only include additional parent-thread text when dispatch fails, required input
-  is missing, or the subagent reports a blocker that needs a user decision.
-
-If required task information is missing, ask one focused clarification question
-before dispatching.
-
-For session switching:
-
-- Do not imply archive/discard behavior.
-- For a new task/session, direct the user to run `/begin-session` first, then
-  dispatch to the target subagent.
-- Otherwise default to `resume-existing` and let the target subagent ask for
-  confirmation if task/session evidence conflicts.
+Do not restate it here.
 
 ## Output
 

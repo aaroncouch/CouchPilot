@@ -5,6 +5,10 @@ and ``.cursor/commands``
 folders from this repository into the user's home ``~/.cursor/...`` directories
 so they apply globally to every Cursor workspace on this machine.
 
+Each run records what it installed in a manifest so the next run can report
+files CouchPilot placed previously but no longer ships. Files the manifest does
+not claim are never touched.
+
 Pure standard library; no external dependencies.
 """
 
@@ -12,8 +16,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import shutil
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -21,6 +27,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent
 CURSOR_SUBDIRS = ("rules", "skills", "agents", "commands")
 HASH_CHUNK_BYTES = 65536
+MANIFEST_NAME = ".couchpilot-manifest.json"
+MANIFEST_VERSION = 1
 
 
 class Action(Enum):
@@ -29,15 +37,25 @@ class Action(Enum):
     COPY = "copy"
     OVERWRITE = "overwrite"
     SKIP_IDENTICAL = "skip-identical"
+    ORPHAN = "orphan"
+    PRUNE = "prune"
+
+
+@dataclass(frozen=True)
+class SyncOptions:
+    """Behavior flags for a single sync run."""
+
+    dry_run: bool = False
+    prune: bool = False
 
 
 @dataclass(frozen=True)
 class SyncStep:
-    """A single planned or executed file copy."""
+    """A single planned or executed file operation."""
 
-    source: Path
     destination: Path
     action: Action
+    source: Path | None = None
 
 
 @dataclass
@@ -61,20 +79,63 @@ class SyncReport:
             result[step.action] += 1
         return result
 
+    def has(self, action: Action) -> bool:
+        """Return True when at least one step used ``action``."""
+        return any(step.action is action for step in self.steps)
+
+
+class Manifest:
+    """Record of the files a previous sync installed under ``<user_home>/.cursor``."""
+
+    def __init__(self, path: Path) -> None:
+        self._path = path
+
+    def read(self) -> set[str]:
+        """Return relative paths recorded by the previous sync.
+
+        Returns:
+            Recorded paths, or an empty set when the manifest is absent or
+            unreadable. An empty set is the safe default: nothing is claimed,
+            so nothing can be pruned.
+        """
+        if not self._path.is_file():
+            return set()
+        try:
+            payload = json.loads(self._path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return set()
+        recorded = payload.get("files", [])
+        if not isinstance(recorded, list):
+            return set()
+        return {entry for entry in recorded if isinstance(entry, str)}
+
+    def write(self, relative_paths: Iterable[str]) -> None:
+        """Overwrite the manifest so it lists exactly ``relative_paths``."""
+        payload = {
+            "version": MANIFEST_VERSION,
+            "generated_by": "couchpilot sync.py",
+            "files": sorted(relative_paths),
+        }
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
 
 class CursorSync:
     """Copy curated Cursor settings from this repo into ``<user_home>/.cursor/``."""
 
-    def __init__(self, repo_root: Path, user_home: Path, *, dry_run: bool = False) -> None:
+    def __init__(self, repo_root: Path, user_home: Path, options: SyncOptions) -> None:
         if not (repo_root / ".cursor").is_dir():
             raise FileNotFoundError(
                 f"Repo root {repo_root} does not contain a .cursor directory; "
                 "make sure sync.py is run from the project root."
             )
         self._repo_root = repo_root
-        self._user_home = user_home
-        self._dry_run = dry_run
+        self._cursor_home = user_home / ".cursor"
+        self._options = options
         self._report = SyncReport()
+        self._manifest = Manifest(self._cursor_home / MANIFEST_NAME)
+        self._installed: set[str] = set()
+        self._retained: set[str] = set()
 
     @property
     def report(self) -> SyncReport:
@@ -82,11 +143,14 @@ class CursorSync:
         return self._report
 
     def run(self) -> None:
-        """Copy ``.cursor/{rules,skills,agents,commands}`` into ``<user_home>/.cursor/``."""
+        """Copy the managed subdirectories, then reconcile against the manifest."""
+        previously_installed = self._manifest.read()
         for subdir in CURSOR_SUBDIRS:
-            source_dir = self._repo_root / ".cursor" / subdir
-            destination_dir = self._user_home / ".cursor" / subdir
-            self._copy_tree(source_dir, destination_dir)
+            self._copy_tree(self._repo_root / ".cursor" / subdir, self._cursor_home / subdir)
+        self._reconcile(previously_installed)
+        if not self._options.dry_run:
+            # Orphans left in place stay claimed, so a later --prune can still find them.
+            self._manifest.write(self._installed | self._retained)
 
     def _copy_tree(self, source_dir: Path, destination_dir: Path) -> None:
         """Recursively copy every file under ``source_dir`` into ``destination_dir``."""
@@ -95,27 +159,43 @@ class CursorSync:
         for source_file in sorted(source_dir.rglob("*")):
             if not source_file.is_file():
                 continue
-            relative = source_file.relative_to(source_dir)
-            destination = destination_dir / relative
+            destination = destination_dir / source_file.relative_to(source_dir)
             self._copy_file(source_file, destination)
 
     def _copy_file(self, source: Path, destination: Path) -> None:
-        """Classify the operation, perform it (unless dry-run), and record it."""
-        action = self._classify(source, destination)
-        if not self._dry_run:
+        """Classify the operation, perform it unless dry-run, and record it."""
+        action = _classify(source, destination)
+        if not self._options.dry_run:
             destination.parent.mkdir(parents=True, exist_ok=True)
             if action is not Action.SKIP_IDENTICAL:
                 shutil.copy2(source, destination)
-        self._report.record(SyncStep(source=source, destination=destination, action=action))
+        self._installed.add(destination.relative_to(self._cursor_home).as_posix())
+        self._report.record(SyncStep(destination=destination, action=action, source=source))
 
-    @staticmethod
-    def _classify(source: Path, destination: Path) -> Action:
-        """Decide whether ``source`` is new, an overwrite, or already identical."""
-        if not destination.exists():
-            return Action.COPY
-        if _file_digest(source) == _file_digest(destination):
-            return Action.SKIP_IDENTICAL
-        return Action.OVERWRITE
+    def _reconcile(self, previously_installed: set[str]) -> None:
+        """Report, and optionally remove, files this sync no longer ships."""
+        for relative in sorted(previously_installed - self._installed):
+            destination = self._cursor_home / relative
+            if not destination.exists():
+                continue
+            if not self._options.prune:
+                self._retained.add(relative)
+                self._report.record(SyncStep(destination=destination, action=Action.ORPHAN))
+                continue
+            if not self._options.dry_run:
+                destination.unlink()
+                _remove_empty_parents(destination.parent, self._cursor_home)
+            self._report.record(SyncStep(destination=destination, action=Action.PRUNE))
+
+
+def _remove_empty_parents(directory: Path, stop_at: Path) -> None:
+    """Delete ``directory`` and empty ancestors, never passing ``stop_at``."""
+    current = directory
+    while current != stop_at and stop_at in current.parents:
+        if any(current.iterdir()):
+            return
+        current.rmdir()
+        current = current.parent
 
 
 def _file_digest(path: Path) -> str:
@@ -127,37 +207,55 @@ def _file_digest(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _classify(source: Path, destination: Path) -> Action:
+    """Decide whether ``source`` is new, an overwrite, or already identical."""
+    if not destination.exists():
+        return Action.COPY
+    if _file_digest(source) == _file_digest(destination):
+        return Action.SKIP_IDENTICAL
+    return Action.OVERWRITE
+
+
 def _build_argument_parser() -> argparse.ArgumentParser:
     """Return the configured ``argparse.ArgumentParser`` for sync.py."""
-    return argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         description=(
-            "Sync CouchPilot Cursor settings (rules, skills, agents) "
-            "including commands into the user-scope ~/.cursor/ so they apply globally."
+            "Sync CouchPilot Cursor settings (rules, skills, agents, commands) "
+            "into the user-scope ~/.cursor/ so they apply globally."
         ),
     )
-
-
-def _add_dry_run_flag(parser: argparse.ArgumentParser) -> None:
-    """Attach the ``--dry-run`` flag to ``parser``."""
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print planned actions without writing any files.",
+        help="Print planned actions without writing, deleting, or updating the manifest.",
     )
+    parser.add_argument(
+        "--prune",
+        action="store_true",
+        help="Delete files a previous sync installed that CouchPilot no longer ships.",
+    )
+    return parser
 
 
-def _print_report(report: SyncReport, dry_run: bool) -> None:
+def _print_report(report: SyncReport, options: SyncOptions) -> None:
     """Print a per-file summary followed by a one-line totals line."""
     for line in report.summary_lines():
         print(line)
     counts = report.counts()
-    label = "DRY RUN" if dry_run else "Synced"
+    label = "DRY RUN" if options.dry_run else "Synced"
     print(
         f"\n{label}: "
         f"{counts[Action.COPY]} new, "
         f"{counts[Action.OVERWRITE]} overwritten, "
-        f"{counts[Action.SKIP_IDENTICAL]} unchanged."
+        f"{counts[Action.SKIP_IDENTICAL]} unchanged, "
+        f"{counts[Action.PRUNE]} pruned, "
+        f"{counts[Action.ORPHAN]} orphaned."
     )
+    if report.has(Action.ORPHAN):
+        print(
+            "\nOrphans above were installed by an earlier sync and are no longer "
+            "shipped.\nRe-run with --prune to delete them."
+        )
 
 
 def _print_session_cache_notice() -> None:
@@ -172,15 +270,11 @@ def _print_session_cache_notice() -> None:
     print()
     print("  1. Restart Cursor (recommended), or at minimum open a fresh")
     print("     chat in a new window.")
-    print("  2. Ask any synced subagent (`/planner-inherit`, `/planner-codex`,")
-    print("     `/planner-gpt55`, `/python-coder-inherit`, `/python-coder-codex`,")
-    print("     `/reviewer-inherit`, `/reviewer-codex`, `/reviewer-gpt55`)")
-    print("     what rules and skills it sees on entry - each one is")
-    print("     instructed to declare its loaded context before doing work.")
-    print()
-    print("  3. If a command was removed from CouchPilot, delete the matching file")
-    print("     under `~/.cursor/commands/` if it is still present (sync does not")
-    print("     remove orphans). For example, `dispatch-subagent.md` was retired.")
+    print("  2. Dispatch any synced subagent (`/planner`, `/python-coder`,")
+    print("     `/reviewer`) and check its loaded-context announcement. Each")
+    print("     rule and skill ends with an id token; the announcement must")
+    print("     echo the ids it can actually see. A `MISSING` entry means")
+    print("     that rule or skill did not reach the subagent.")
     print()
     print("Note: glob-scoped rules only attach when a matching file is in")
     print("the chat's context. `python.mdc` won't show up unless a `*.py`")
@@ -190,21 +284,16 @@ def _print_session_cache_notice() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     """Parse arguments and run a single ``CursorSync`` session."""
-    parser = _build_argument_parser()
-    _add_dry_run_flag(parser)
-    args = parser.parse_args(argv)
+    args = _build_argument_parser().parse_args(argv)
+    options = SyncOptions(dry_run=args.dry_run, prune=args.prune)
     try:
-        sync = CursorSync(
-            repo_root=REPO_ROOT,
-            user_home=Path.home(),
-            dry_run=args.dry_run,
-        )
+        sync = CursorSync(repo_root=REPO_ROOT, user_home=Path.home(), options=options)
         sync.run()
     except FileNotFoundError as error:
         print(f"sync.py: {error}", file=sys.stderr)
         return 2
-    _print_report(sync.report, args.dry_run)
-    if not args.dry_run:
+    _print_report(sync.report, options)
+    if not options.dry_run:
         _print_session_cache_notice()
     return 0
 
