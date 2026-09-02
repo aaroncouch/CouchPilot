@@ -7,7 +7,7 @@ description: Apply the project's Python style conventions when writing or review
 The goal: code so plain that intent is obvious on first read, and clean enough
 that pylint has nothing to say about it.
 
-This skill is the worked-examples layer. The `python.mdc` rule carries the
+This skill is the worked-examples layer. The `couch-python.mdc` rule carries the
 enforceable contract (caps, codes, the no-disables policy) and is
 authoritative for everything it covers. What follows shows what those codes
 actually look like in practice, because a message code is easier to satisfy

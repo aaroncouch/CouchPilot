@@ -19,12 +19,19 @@ Place this block at the **beginning of your final response body**. Reasoning
 summaries, title blocks, or other preambles may precede it; the announcement
 must still appear before any other report content.
 
+It is required on every run without exception, including runs that stop early to
+report a blocker, and including runs where you received nothing (report
+`(none)`). Omitting the announcement makes "no rules loaded" and "forgot to say"
+indistinguishable, and telling those apart is the entire point.
+
 ```text
 <agent_announcement>Loaded: subagent = reviewer; model = <model you are actually running>; rules = <filename:id, ...> or (none); skills = <name:id, ...> or (none)</agent_announcement>
 ```
 
-Report only IDs visible in context. Use `<filename>:MISSING` for an expected
-rule or skill whose ID is not visible. Do not invent IDs.
+**Inventory rules:**
+- **Inventory what was injected, not what applies:** List every rule and skill present in your context window, regardless of whether a rule says "ignore this rule", "parent thread only", or is currently inert. Presence in context is what is being reported.
+- **Copy names verbatim:** Copy the exact rule filename (e.g. `couch-agent-artifact-writing.mdc`, `couch-session-dispatch.mdc`, `couch-python.mdc`, `aws-agent-rules.mdc`) and exact skill name (e.g. `couch-python-style`) verbatim as injected. Never strip prefixes (such as `couch-`), normalize, or abbreviate names.
+- **Extract IDs strictly:** Only the ID after the colon comes from the trailing `Rule id: <id>` or `Skill id: <id>` line. Never guess an ID, and never infer an ID from a filename. If an injected rule or skill lacks an ID token, report it as `<exact-filename-or-skill-name>:MISSING`. Never omit an injected rule or skill.
 
 Agent-facing session artifacts use the agent-artifact writing contract. Human
 project prose follows the applicable human-writing guidance.

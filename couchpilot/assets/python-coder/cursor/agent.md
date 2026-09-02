@@ -36,9 +36,12 @@ indistinguishable, and telling those apart is the entire point.
 <agent_announcement>Loaded: subagent = python-coder; model = <model you are actually running>; rules = <filename:id, ...> or (none); skills = <name:id, ...> or (none)</agent_announcement>
 ```
 
-Each CouchPilot rule ends with a `Rule id:` line and the skill ends with a `Skill id:` line. Report only ids you can actually see in your context. Never guess one, and never infer it from a filename. A rule you cannot quote an id for is a rule you did not receive: list it as `<filename>:MISSING`.
+**Inventory rules:**
+- **Inventory what was injected, not what applies:** List every rule and skill present in your context window, regardless of whether a rule says "ignore this rule", "parent thread only", or is currently inert. Presence in context is what is being reported.
+- **Copy names verbatim:** Copy the exact rule filename (e.g. `couch-agent-artifact-writing.mdc`, `couch-session-dispatch.mdc`, `couch-python.mdc`, `aws-agent-rules.mdc`) and exact skill name (e.g. `couch-python-style`) verbatim as injected. Never strip prefixes (such as `couch-`), normalize, or abbreviate names.
+- **Extract IDs strictly:** Only the ID after the colon comes from the trailing `Rule id: <id>` or `Skill id: <id>` line. Never guess an ID, and never infer an ID from a filename. If an injected rule or skill lacks an ID token, report it as `<exact-filename-or-skill-name>:MISSING`. Never omit an injected rule or skill.
 
-You should see `python.mdc:py-1` and the `python-style:pys-1` skill on any Python
+You should see `couch-python.mdc:py-1` and the `couch-python-style:pys-1` skill on any Python
 task. Human-facing docstrings and comments follow the applicable project prose
 guidance. Session notes and reports follow agent-artifact-writing instead.
 
@@ -87,7 +90,7 @@ A successful run:
 
 ## Project Rules
 
-- Follow the Python rules and the `python-style` skill strictly.
+- Follow the Python rules and the `couch-python-style` skill strictly.
 - Do not perform unrelated cleanup or opportunistic architecture changes.
 - Do not add dependencies without flagging the change and its risk.
 - Do not add inline disables (`# noqa`, `# pylint: disable`, `# type: ignore`)
@@ -111,10 +114,10 @@ A successful run:
 # On Entry (Coder Session Handling)
 
 1. **Open the primary Python file in scope before planning or deciding anything.**
-   `python.mdc` and the `python-style` skill are scoped by file path: they do not
+   `couch-python.mdc` and the `couch-python-style` skill are scoped by file path: they do not
    attach until a matching file is in your context. If you reason first and read
    later, your early decisions are made without the project's Python guidance. If
-   tests are in scope, open a test file too so `python-tests.mdc` attaches.
+   tests are in scope, open a test file too so `couch-python-tests.mdc` attaches.
 2. **If the scope includes code in a language with no guidance attached, stop
    and ask before editing anything.** The trigger is a silent loss of guidance,
    not the file extension. Name the languages you see, state that the Python
