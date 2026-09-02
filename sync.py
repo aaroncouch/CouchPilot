@@ -24,7 +24,12 @@ from enum import Enum
 from pathlib import Path
 
 from couchpilot.compiler import CompilerError, RenderedArtifact, compile_assets
-from couchpilot.hosts import HOST_PROFILES, get_host_profile, resolve_install_dir
+from couchpilot.hosts import (
+    HOST_PROFILES,
+    find_wsl_windows_cursor_dir,
+    get_host_profile,
+    resolve_install_dir,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent
 ASSETS_ROOT = REPO_ROOT / "couchpilot" / "assets"
@@ -268,15 +273,15 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_report(target: str, report: SyncReport, options: SyncOptions) -> None:
+def _print_report(label: str, report: SyncReport, options: SyncOptions) -> None:
     """Print a per-file summary followed by a one-line totals line for one target."""
-    print(f"\n== {target} ==")
+    print(f"\n== {label} ==")
     for line in report.summary_lines():
         print(line)
     counts = report.counts()
-    label = "DRY RUN" if options.dry_run else "Synced"
+    label_prefix = "DRY RUN" if options.dry_run else "Synced"
     print(
-        f"{label}: "
+        f"{label_prefix}: "
         f"{counts[Action.COPY]} new, "
         f"{counts[Action.OVERWRITE]} overwritten, "
         f"{counts[Action.SKIP_IDENTICAL]} unchanged, "
@@ -286,7 +291,7 @@ def _print_report(target: str, report: SyncReport, options: SyncOptions) -> None
     if report.has(Action.ORPHAN):
         print(
             f"Orphans above were installed by an earlier sync and are no longer "
-            f"shipped under ~/.{target}. Re-run with --prune to delete them."
+            f"shipped under this target. Re-run with --prune to delete them."
         )
 
 
@@ -342,9 +347,39 @@ def main(argv: list[str] | None = None) -> int:
         sync.run()
         _print_report(target, sync.report, options)
 
+        if target == "cursor":
+            _sync_wsl_windows_companion(target_artifacts, options)
+
     if not options.dry_run:
         _print_session_cache_notice(targets)
     return 0
+
+
+def _sync_wsl_windows_companion(
+    cursor_artifacts: list[RenderedArtifact],
+    options: SyncOptions,
+) -> None:
+    """Mirror Cursor slash commands to the Windows host ``.cursor`` when in WSL2.
+
+    The Electron UI on Windows discovers ``/command`` definitions under
+    ``%USERPROFILE%\\.cursor\\commands\\``. Agents, skills, and rules stay on
+    the WSL ``~/.cursor/`` sync and are not written here.
+    """
+    companion_home = find_wsl_windows_cursor_dir()
+    if companion_home is None:
+        return
+    command_artifacts = [
+        artifact for artifact in cursor_artifacts if artifact.family == "command"
+    ]
+    if not command_artifacts:
+        return
+    sync = TargetSync(companion_home, command_artifacts, options)
+    sync.run()
+    _print_report(
+        f"cursor (wsl windows companion: {companion_home})",
+        sync.report,
+        options,
+    )
 
 
 if __name__ == "__main__":

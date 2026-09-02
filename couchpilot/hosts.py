@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 FAMILIES = ("rule", "command", "agent", "skill")
+
+_WINDOWS_SYSTEM_USERS = frozenset({"Public", "Default", "Default User", "All Users"})
 
 _FAMILY_DIRECTORIES = {
     "rule": "rules",
@@ -177,3 +181,67 @@ def resolve_install_dir(profile: HostProfile, user_home: Path) -> Path:
     if install_dir.startswith("~/"):
         return user_home / install_dir[2:]
     return Path(install_dir).expanduser()
+
+
+def _running_in_wsl(
+    proc_version: Path,
+    environ: Mapping[str, str],
+) -> bool:
+    """True when this process appears to be inside a WSL distro."""
+    if "WSL_DISTRO_NAME" in environ:
+        return True
+    if not proc_version.is_file():
+        return False
+    try:
+        text = proc_version.read_text(encoding="utf-8", errors="ignore").lower()
+    except OSError:
+        return False
+    return "microsoft" in text or "wsl" in text
+
+
+def find_wsl_windows_cursor_dir(
+    proc_version: Path = Path("/proc/version"),
+    users_root: Path = Path("/mnt/c/Users"),
+    environ: Mapping[str, str] | None = None,
+) -> Path | None:
+    """Locate the Windows host ``.cursor`` dir when sync runs inside WSL2.
+
+    Cursor on WSL2 is a split client-server setup:
+
+    - Slash commands (``/command``) are registered by the Electron frontend on
+      Windows, which reads ``%USERPROFILE%\\.cursor\\commands\\``.
+    - Agents, skills, and rules are consumed by the agent engine inside WSL,
+      which reads ``~/.cursor/`` on the Linux filesystem.
+
+    When this process is not in WSL, or no Windows user ``.cursor`` directory
+    is mounted under ``users_root``, returns ``None`` so callers stay inert on
+    macOS and native Linux.
+
+    Args:
+        proc_version: Kernel identity file; defaults to ``/proc/version``.
+        users_root: Windows users mount; defaults to ``/mnt/c/Users``.
+        environ: Process environment used for ``WSL_DISTRO_NAME`` detection.
+            Defaults to ``os.environ``.
+
+    Returns:
+        Path to the first non-system Windows user ``.cursor`` directory found,
+        or ``None`` when not in WSL or no candidate exists.
+    """
+    env = os.environ if environ is None else environ
+    if not _running_in_wsl(proc_version, env):
+        return None
+    if not users_root.is_dir():
+        return None
+
+    try:
+        user_dirs = sorted(path for path in users_root.iterdir() if path.is_dir())
+    except OSError:
+        return None
+
+    for user_dir in user_dirs:
+        if user_dir.name in _WINDOWS_SYSTEM_USERS:
+            continue
+        cursor_dir = user_dir / ".cursor"
+        if cursor_dir.is_dir():
+            return cursor_dir
+    return None

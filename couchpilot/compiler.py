@@ -23,6 +23,7 @@ FAMILY_FILENAMES = {
 }
 CORE_MARKER = "{{core}}"
 NAME_PREFIX = "couch-"
+_NAMED_FAMILIES = frozenset({"skill", "agent"})
 
 FrontmatterValue = str | bool | list[str]
 
@@ -338,9 +339,22 @@ def _validate_synthesis_requirements(asset: Asset) -> list[str]:
     return errors
 
 
-def merge_frontmatter(core: ParsedDocument | None, wrapper: ParsedDocument) -> dict[str, FrontmatterValue]:
-    """Merge core and wrapper frontmatter; core owns ``description`` when present."""
+def merge_frontmatter(
+    core: ParsedDocument | None,
+    wrapper: ParsedDocument,
+    *,
+    asset_id: str = "",
+    family: str = "",
+) -> dict[str, FrontmatterValue]:
+    """Merge core and wrapper frontmatter; core owns ``description`` when present.
+
+    For ``skill`` and ``agent`` families, injects ``name: couch-<asset_id>`` as the
+    first frontmatter key so Cursor/Claude can discover the compiled artifact.
+    Rules and commands keep filename-derived identity and do not get a ``name`` key.
+    """
     merged: dict[str, FrontmatterValue] = {}
+    if family in _NAMED_FAMILIES and asset_id:
+        merged["name"] = f"{NAME_PREFIX}{asset_id}"
     if core is not None and "description" in core.frontmatter:
         merged["description"] = core.frontmatter["description"]
     for key, value in wrapper.frontmatter.items():
@@ -427,7 +441,12 @@ def compile_assets(assets_root: Path) -> list[RenderedArtifact]:
     artifacts = []
     for asset in assets:
         for wrapper in asset.wrappers:
-            fields = merge_frontmatter(asset.core, wrapper.doc)
+            fields = merge_frontmatter(
+                asset.core,
+                wrapper.doc,
+                asset_id=asset.asset_id,
+                family=wrapper.family,
+            )
             body = substitute_core(asset.core, wrapper.doc)
             content = render_document(fields, body)
             relative_path = destination_for(wrapper.target, wrapper.family, asset.asset_id)

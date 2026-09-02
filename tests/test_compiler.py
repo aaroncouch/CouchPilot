@@ -12,6 +12,7 @@ from couchpilot.hosts import (
     CursorHostProfile,
     HOST_PROFILES,
     create_default_profiles,
+    find_wsl_windows_cursor_dir,
     get_host_profile,
     load_host_profiles,
     resolve_install_dir,
@@ -250,6 +251,49 @@ class RenderingTests(unittest.TestCase):
         self.assertEqual(merged["description"], "Solo agent.")
         self.assertEqual(merged["model"], "inherit")
 
+    def test_merge_frontmatter_injects_name_for_skill_and_agent(self) -> None:
+        self.assets.add_single_platform_asset("solo")
+        asset = discover_assets(self.assets.root)[0]
+        merged = merge_frontmatter(
+            asset.core,
+            asset.wrappers[0].doc,
+            asset_id=asset.asset_id,
+            family="agent",
+        )
+        self.assertEqual(list(merged.items())[0], ("name", "couch-solo"))
+        self.assertEqual(merged["description"], "Solo agent.")
+
+        skill_doc = parse_document(
+            "---\ndisable-model-invocation: true\n---\n\n{{core}}\n"
+        )
+        core = parse_document("---\ndescription: A skill.\n---\n\nBody.\n")
+        skill_merged = merge_frontmatter(
+            core, skill_doc, asset_id="helper", family="skill"
+        )
+        self.assertEqual(list(skill_merged.items())[0], ("name", "couch-helper"))
+        self.assertEqual(skill_merged["description"], "A skill.")
+
+    def test_merge_frontmatter_omits_name_for_rule_and_command(self) -> None:
+        self.assets.add_shared_asset("widget", core_description="Core description.")
+        asset = discover_assets(self.assets.root)[0]
+        cursor_wrapper = next(w for w in asset.wrappers if w.target == "cursor")
+        rule_merged = merge_frontmatter(
+            asset.core,
+            cursor_wrapper.doc,
+            asset_id=asset.asset_id,
+            family="rule",
+        )
+        self.assertNotIn("name", rule_merged)
+
+        command_doc = parse_document("---\n---\n\nRun the thing.\n")
+        command_merged = merge_frontmatter(
+            asset.core,
+            command_doc,
+            asset_id=asset.asset_id,
+            family="command",
+        )
+        self.assertNotIn("name", command_merged)
+
     def test_substitute_core_replaces_marker_with_core_body(self) -> None:
         self.assets.add_shared_asset("widget")
         asset = discover_assets(self.assets.root)[0]
@@ -290,6 +334,54 @@ class CompileAssetsTests(unittest.TestCase):
         self.assertEqual(by_key[("widget", "cursor", "rule")].relative_path, Path("rules/couch-widget.mdc"))
         self.assertEqual(by_key[("widget", "claude", "rule")].relative_path, Path("rules/couch-widget.md"))
         self.assertEqual(by_key[("solo", "cursor", "agent")].relative_path, Path("agents/couch-solo.md"))
+
+    def test_compiled_skill_and_agent_include_name_frontmatter(self) -> None:
+        self.assets.add_single_platform_asset("solo")
+        _write(
+            self.assets.root / "helper" / "core.md",
+            "---\ndescription: Helper skill.\n---\n\n# Helper\n\nBody.\n",
+        )
+        _write(
+            self.assets.root / "helper" / "cursor" / "skill.md",
+            "---\n---\n\n{{core}}\n",
+        )
+        _write(
+            self.assets.root / "helper" / "claude" / "skill.md",
+            "---\ndisable-model-invocation: true\n---\n\n{{core}}\n",
+        )
+        artifacts = compile_assets(self.assets.root)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+
+        agent = by_key[("solo", "cursor", "agent")]
+        self.assertTrue(agent.content.startswith("---\nname: couch-solo\n"))
+        self.assertIn("description: Solo agent.", agent.content)
+
+        for target in ("cursor", "claude"):
+            skill = by_key[("helper", target, "skill")]
+            self.assertTrue(skill.content.startswith("---\nname: couch-helper\n"))
+            self.assertIn("description: Helper skill.", skill.content)
+
+    def test_compiled_rule_and_command_omit_name_frontmatter(self) -> None:
+        self.assets.add_shared_asset("widget")
+        _write(
+            self.assets.root / "run-it" / "core.md",
+            "---\ndescription: Run the command.\n---\n\n# Run\n\nBody.\n",
+        )
+        _write(
+            self.assets.root / "run-it" / "cursor" / "command.md",
+            "---\n---\n\n{{core}}\n",
+        )
+        artifacts = compile_assets(self.assets.root)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+
+        for key in (("widget", "cursor", "rule"), ("widget", "claude", "rule")):
+            parsed = parse_document(by_key[key].content)
+            self.assertNotIn("name", parsed.frontmatter)
+
+        command = by_key[("run-it", "cursor", "command")]
+        parsed_command = parse_document(command.content)
+        self.assertNotIn("name", parsed_command.frontmatter)
+        self.assertEqual(parsed_command.frontmatter["description"], "Run the command.")
 
     def test_raises_compiler_error_with_every_violation(self) -> None:
         _write(self.assets.root / "broken" / "cursor" / "agent.md", "---\ndescription: x\n---\n\nBody.\n")
@@ -498,6 +590,97 @@ class DestinationForTests(unittest.TestCase):
             destination_for("chatgpt", "rule", "widget")
         with self.assertRaises(KeyError):
             destination_for("cursor", "workflow", "widget")
+
+
+class FindWslWindowsCursorDirTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        self.proc_version = self.root / "proc_version"
+        self.users_root = self.root / "Users"
+        self.users_root.mkdir()
+
+    def _write_proc(self, text: str) -> None:
+        self.proc_version.write_text(text, encoding="utf-8")
+
+    def _add_user_cursor(self, username: str) -> Path:
+        cursor_dir = self.users_root / username / ".cursor"
+        cursor_dir.mkdir(parents=True)
+        return cursor_dir
+
+    def test_returns_windows_cursor_dir_when_proc_version_mentions_microsoft(self) -> None:
+        self._write_proc("Linux version 6.6.87-microsoft-standard-WSL2")
+        expected = self._add_user_cursor("alice")
+
+        found = find_wsl_windows_cursor_dir(
+            proc_version=self.proc_version,
+            users_root=self.users_root,
+            environ={},
+        )
+
+        self.assertEqual(found, expected)
+
+    def test_returns_windows_cursor_dir_when_wsl_distro_name_set(self) -> None:
+        self._write_proc("Linux version 6.6.0-generic")
+        expected = self._add_user_cursor("bob")
+
+        found = find_wsl_windows_cursor_dir(
+            proc_version=self.proc_version,
+            users_root=self.users_root,
+            environ={"WSL_DISTRO_NAME": "Ubuntu"},
+        )
+
+        self.assertEqual(found, expected)
+
+    def test_skips_windows_system_user_directories(self) -> None:
+        self._write_proc("Linux version 6.6.87-microsoft-standard-WSL2")
+        for system_user in ("Public", "Default", "Default User", "All Users"):
+            self._add_user_cursor(system_user)
+        expected = self._add_user_cursor("carol")
+
+        found = find_wsl_windows_cursor_dir(
+            proc_version=self.proc_version,
+            users_root=self.users_root,
+            environ={},
+        )
+
+        self.assertEqual(found, expected)
+
+    def test_returns_none_when_not_in_wsl(self) -> None:
+        self._write_proc("Linux version 6.8.0-generic")
+        self._add_user_cursor("dave")
+
+        found = find_wsl_windows_cursor_dir(
+            proc_version=self.proc_version,
+            users_root=self.users_root,
+            environ={},
+        )
+
+        self.assertIsNone(found)
+
+    def test_returns_none_when_proc_version_missing(self) -> None:
+        self._add_user_cursor("erin")
+
+        found = find_wsl_windows_cursor_dir(
+            proc_version=self.root / "missing-proc-version",
+            users_root=self.users_root,
+            environ={},
+        )
+
+        self.assertIsNone(found)
+
+    def test_returns_none_when_no_user_has_cursor(self) -> None:
+        self._write_proc("Linux version 6.6.87-microsoft-standard-WSL2")
+        (self.users_root / "frank").mkdir()
+
+        found = find_wsl_windows_cursor_dir(
+            proc_version=self.proc_version,
+            users_root=self.users_root,
+            environ={},
+        )
+
+        self.assertIsNone(found)
 
 
 if __name__ == "__main__":

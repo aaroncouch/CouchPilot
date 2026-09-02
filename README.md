@@ -52,6 +52,22 @@ overridable via `couchpilot.json`). It syncs **only** the hosts it finds:
 
 This keeps Cursor-only workflows frictionless.
 
+### WSL2 & Remote Environment Companion Sync
+
+On WSL2, Cursor splits work across two machines:
+
+- **Commands (`/command`):** Registered by the Windows Electron UI. Autocomplete
+  and trigger chips read `%USERPROFILE%\.cursor\commands\` on the Windows host.
+- **Agents, skills, and rules:** Consumed by the agent engine inside WSL, which
+  reads `~/.cursor/` on the Linux filesystem.
+
+When `sync.py` runs inside WSL2, it still writes the full Cursor tree to
+`~/.cursor/`. It also detects the mounted Windows user profile under
+`/mnt/c/Users/` and mirrors only slash-command artifacts into that user's
+`.cursor/commands/`. No symlinks and no machine-specific paths in
+`couchpilot.json` are required. On macOS and native Linux the companion path
+resolves to nothing and sync is unchanged.
+
 ### CLI flags
 
 | Flag | Purpose |
