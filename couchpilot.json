@@ -1,0 +1,19 @@
+{
+  "hosts": {
+    "cursor": {
+      "install_dir": "~/.cursor",
+      "style_dialect": "universal_xml",
+      "default_frontmatter": {
+        "rule": { "alwaysApply": true },
+        "agent": { "model": "inherit" }
+      }
+    },
+    "claude": {
+      "install_dir": "~/.claude",
+      "style_dialect": "anthropic_xml",
+      "default_frontmatter": {
+        "skill": { "disable-model-invocation": true }
+      }
+    }
+  }
+}

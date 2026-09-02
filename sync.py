@@ -1,13 +1,13 @@
-"""Sync CouchPilot Cursor settings into the user-scope ``~/.cursor/`` directory.
+"""Compile and sync CouchPilot assets into user-scope host directories.
 
-Copies the curated ``.cursor/rules``, ``.cursor/skills``, ``.cursor/agents``,
-and ``.cursor/commands``
-folders from this repository into the user's home ``~/.cursor/...`` directories
-so they apply globally to every Cursor workspace on this machine.
+Renders the canonical asset sources under ``couchpilot/assets/`` (see
+``couchpilot/FORMAT.md``) into installable artifacts for Cursor (``~/.cursor``)
+and/or Claude Code (``~/.claude``), then writes them so they apply globally to
+every workspace on this machine.
 
-Each run records what it installed in a manifest so the next run can report
-files CouchPilot placed previously but no longer ships. Files the manifest does
-not claim are never touched.
+Each run records what it installed in a target-scoped manifest so the next run
+can report files CouchPilot placed previously but no longer ships. Files the
+manifest does not claim are never touched.
 
 Pure standard library; no external dependencies.
 """
@@ -17,15 +17,18 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import shutil
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from couchpilot.compiler import CompilerError, RenderedArtifact, compile_assets
+from couchpilot.hosts import HOST_PROFILES, get_host_profile, resolve_install_dir
+
 REPO_ROOT = Path(__file__).resolve().parent
-CURSOR_SUBDIRS = ("rules", "skills", "agents", "commands")
+ASSETS_ROOT = REPO_ROOT / "couchpilot" / "assets"
+TARGETS = tuple(HOST_PROFILES.keys())
 HASH_CHUNK_BYTES = 65536
 MANIFEST_NAME = ".couchpilot-manifest.json"
 MANIFEST_VERSION = 1
@@ -55,7 +58,6 @@ class SyncStep:
 
     destination: Path
     action: Action
-    source: Path | None = None
 
 
 @dataclass
@@ -85,7 +87,7 @@ class SyncReport:
 
 
 class Manifest:
-    """Record of the files a previous sync installed under ``<user_home>/.cursor``."""
+    """Record of the files a previous sync installed under one target's home dir."""
 
     def __init__(self, path: Path) -> None:
         self._path = path
@@ -120,20 +122,20 @@ class Manifest:
         self._path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
-class CursorSync:
-    """Copy curated Cursor settings from this repo into ``<user_home>/.cursor/``."""
+class TargetSync:
+    """Write a target's rendered artifacts into ``<target_home>/``."""
 
-    def __init__(self, repo_root: Path, user_home: Path, options: SyncOptions) -> None:
-        if not (repo_root / ".cursor").is_dir():
-            raise FileNotFoundError(
-                f"Repo root {repo_root} does not contain a .cursor directory; "
-                "make sure sync.py is run from the project root."
-            )
-        self._repo_root = repo_root
-        self._cursor_home = user_home / ".cursor"
+    def __init__(
+        self,
+        target_home: Path,
+        artifacts: list[RenderedArtifact],
+        options: SyncOptions,
+    ) -> None:
+        self._target_home = target_home
+        self._artifacts = artifacts
         self._options = options
         self._report = SyncReport()
-        self._manifest = Manifest(self._cursor_home / MANIFEST_NAME)
+        self._manifest = Manifest(target_home / MANIFEST_NAME)
         self._installed: set[str] = set()
         self._retained: set[str] = set()
 
@@ -143,39 +145,31 @@ class CursorSync:
         return self._report
 
     def run(self) -> None:
-        """Copy the managed subdirectories, then reconcile against the manifest."""
+        """Write every artifact, then reconcile against the previous manifest."""
         previously_installed = self._manifest.read()
-        for subdir in CURSOR_SUBDIRS:
-            self._copy_tree(self._repo_root / ".cursor" / subdir, self._cursor_home / subdir)
+        for artifact in self._artifacts:
+            self._write_artifact(artifact)
         self._reconcile(previously_installed)
         if not self._options.dry_run:
             # Orphans left in place stay claimed, so a later --prune can still find them.
             self._manifest.write(self._installed | self._retained)
 
-    def _copy_tree(self, source_dir: Path, destination_dir: Path) -> None:
-        """Recursively copy every file under ``source_dir`` into ``destination_dir``."""
-        if not source_dir.is_dir():
-            raise FileNotFoundError(f"Missing source directory: {source_dir}")
-        for source_file in sorted(source_dir.rglob("*")):
-            if not source_file.is_file():
-                continue
-            destination = destination_dir / source_file.relative_to(source_dir)
-            self._copy_file(source_file, destination)
-
-    def _copy_file(self, source: Path, destination: Path) -> None:
-        """Classify the operation, perform it unless dry-run, and record it."""
-        action = _classify(source, destination)
+    def _write_artifact(self, artifact: RenderedArtifact) -> None:
+        """Classify the write, perform it unless dry-run, and record it."""
+        destination = self._target_home / artifact.relative_path
+        action = _classify(artifact.content, destination)
         if not self._options.dry_run:
             destination.parent.mkdir(parents=True, exist_ok=True)
             if action is not Action.SKIP_IDENTICAL:
-                shutil.copy2(source, destination)
-        self._installed.add(destination.relative_to(self._cursor_home).as_posix())
-        self._report.record(SyncStep(destination=destination, action=action, source=source))
+                destination.write_text(artifact.content, encoding="utf-8")
+        relative = artifact.relative_path.as_posix()
+        self._installed.add(relative)
+        self._report.record(SyncStep(destination=destination, action=action))
 
     def _reconcile(self, previously_installed: set[str]) -> None:
         """Report, and optionally remove, files this sync no longer ships."""
         for relative in sorted(previously_installed - self._installed):
-            destination = self._cursor_home / relative
+            destination = self._target_home / relative
             if not destination.exists():
                 continue
             if not self._options.prune:
@@ -184,7 +178,7 @@ class CursorSync:
                 continue
             if not self._options.dry_run:
                 destination.unlink()
-                _remove_empty_parents(destination.parent, self._cursor_home)
+                _remove_empty_parents(destination.parent, self._target_home)
             self._report.record(SyncStep(destination=destination, action=Action.PRUNE))
 
 
@@ -198,6 +192,11 @@ def _remove_empty_parents(directory: Path, stop_at: Path) -> None:
         current = current.parent
 
 
+def _content_digest(content: str) -> str:
+    """Return the SHA-256 hex digest of ``content`` encoded as UTF-8."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
 def _file_digest(path: Path) -> str:
     """Return the SHA-256 hex digest of a file's contents."""
     digest = hashlib.sha256()
@@ -207,21 +206,53 @@ def _file_digest(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _classify(source: Path, destination: Path) -> Action:
-    """Decide whether ``source`` is new, an overwrite, or already identical."""
+def _classify(content: str, destination: Path) -> Action:
+    """Decide whether ``content`` is new, an overwrite, or already identical."""
     if not destination.exists():
         return Action.COPY
-    if _file_digest(source) == _file_digest(destination):
+    if _content_digest(content) == _file_digest(destination):
         return Action.SKIP_IDENTICAL
     return Action.OVERWRITE
+
+
+def _resolve_targets(requested: str | None, user_home: Path) -> list[str]:
+    """Resolve which targets to sync from ``--target``, or autodetect."""
+    if requested in HOST_PROFILES:
+        return [requested]
+    if requested == "all":
+        return list(TARGETS)
+    detected = [
+        target
+        for target in TARGETS
+        if resolve_install_dir(get_host_profile(target), user_home).is_dir()
+    ]
+    if not detected:
+        install_dirs = ", ".join(
+            profile.default_install_dir for profile in HOST_PROFILES.values()
+        )
+        raise FileNotFoundError(
+            f"No host install directories ({install_dirs}) exist under {user_home}; "
+            f"pass --target {'|'.join((*TARGETS, 'all'))} to create one."
+        )
+    return detected
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     """Return the configured ``argparse.ArgumentParser`` for sync.py."""
     parser = argparse.ArgumentParser(
         description=(
-            "Sync CouchPilot Cursor settings (rules, skills, agents, commands) "
-            "into the user-scope ~/.cursor/ so they apply globally."
+            "Compile CouchPilot assets (couchpilot/assets/) and sync the rendered "
+            "rules, skills, agents, and commands into the user-scope ~/.cursor "
+            "and/or ~/.claude so they apply globally."
+        ),
+    )
+    parser.add_argument(
+        "--target",
+        choices=(*TARGETS, "all"),
+        default=None,
+        help=(
+            "Which host to sync. Defaults to autodetecting existing host install "
+            "directories from the profile registry."
         ),
     )
     parser.add_argument(
@@ -237,14 +268,15 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_report(report: SyncReport, options: SyncOptions) -> None:
-    """Print a per-file summary followed by a one-line totals line."""
+def _print_report(target: str, report: SyncReport, options: SyncOptions) -> None:
+    """Print a per-file summary followed by a one-line totals line for one target."""
+    print(f"\n== {target} ==")
     for line in report.summary_lines():
         print(line)
     counts = report.counts()
     label = "DRY RUN" if options.dry_run else "Synced"
     print(
-        f"\n{label}: "
+        f"{label}: "
         f"{counts[Action.COPY]} new, "
         f"{counts[Action.OVERWRITE]} overwritten, "
         f"{counts[Action.SKIP_IDENTICAL]} unchanged, "
@@ -253,48 +285,65 @@ def _print_report(report: SyncReport, options: SyncOptions) -> None:
     )
     if report.has(Action.ORPHAN):
         print(
-            "\nOrphans above were installed by an earlier sync and are no longer "
-            "shipped.\nRe-run with --prune to delete them."
+            f"Orphans above were installed by an earlier sync and are no longer "
+            f"shipped under ~/.{target}. Re-run with --prune to delete them."
         )
 
 
-def _print_session_cache_notice() -> None:
-    """Print the post-sync reminder about Cursor's session-scoped rule cache."""
+def _print_session_cache_notice(targets: list[str]) -> None:
+    """Print the post-sync reminder about host-side caching of rules/skills/agents."""
     divider = "-" * 70
     print()
     print(divider)
-    print("Heads up: Cursor caches user-scope rules, skills, subagents, and commands")
-    print("per chat session. The files above are on disk, but any open chat")
-    print("(and possibly the running IDE) may still hold the previous")
-    print("snapshot. To guarantee the new content is picked up:")
+    print("Heads up: Cursor and Claude Code cache user-scope rules, skills,")
+    print("subagents, and commands per session. The files above are on disk, but")
+    print("any open chat (and possibly the running app) may still hold the")
+    print("previous snapshot. To guarantee the new content is picked up:")
     print()
-    print("  1. Restart Cursor (recommended), or at minimum open a fresh")
-    print("     chat in a new window.")
-    print("  2. Dispatch any synced subagent (`/planner`, `/python-coder`,")
-    print("     `/reviewer`) and check its loaded-context announcement. Each")
-    print("     rule and skill ends with an id token; the announcement must")
-    print("     echo the ids it can actually see. A `MISSING` entry means")
-    print("     that rule or skill did not reach the subagent.")
+    print("  1. Restart the app(s) you synced (recommended), or at minimum open")
+    print("     a fresh session/chat.")
+    if "cursor" in targets:
+        print("  2. In Cursor, dispatch a synced subagent (`/couch-planner`,")
+        print("     `/couch-python-coder`, `/couch-reviewer`) and check its loaded-")
+        print("     context announcement. Each rule and skill ends with an id token;")
+        print("     the announcement must echo the ids it can actually see. A")
+        print("     `MISSING` entry means that rule or skill did not reach it.")
     print()
-    print("Note: glob-scoped rules only attach when a matching file is in")
-    print("the chat's context. `python.mdc` won't show up unless a `*.py`")
-    print("file is open or attached.")
+    print("Note: path-scoped rules only attach when a matching file is in the")
+    print("session's context (for example, `couch-python.mdc`/`couch-python.md`")
+    print("need a *.py file open or attached).")
     print(divider)
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Parse arguments and run a single ``CursorSync`` session."""
+    """Parse arguments, compile assets, and run one sync per resolved target."""
     args = _build_argument_parser().parse_args(argv)
     options = SyncOptions(dry_run=args.dry_run, prune=args.prune)
+    user_home = Path.home()
+
     try:
-        sync = CursorSync(repo_root=REPO_ROOT, user_home=Path.home(), options=options)
-        sync.run()
+        artifacts = compile_assets(ASSETS_ROOT)
+    except CompilerError as error:
+        print("sync.py: asset validation failed:", file=sys.stderr)
+        for issue in error.errors:
+            print(f"  - {issue}", file=sys.stderr)
+        return 2
+
+    try:
+        targets = _resolve_targets(args.target, user_home)
     except FileNotFoundError as error:
         print(f"sync.py: {error}", file=sys.stderr)
         return 2
-    _print_report(sync.report, options)
+
+    for target in targets:
+        target_home = resolve_install_dir(get_host_profile(target), user_home)
+        target_artifacts = [artifact for artifact in artifacts if artifact.target == target]
+        sync = TargetSync(target_home, target_artifacts, options)
+        sync.run()
+        _print_report(target, sync.report, options)
+
     if not options.dry_run:
-        _print_session_cache_notice()
+        _print_session_cache_notice(targets)
     return 0
 
 
