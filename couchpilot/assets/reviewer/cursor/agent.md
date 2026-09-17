@@ -25,7 +25,7 @@ report a blocker, and including runs where you received nothing (report
 indistinguishable, and telling those apart is the entire point.
 
 ```text
-<agent_announcement>Loaded: subagent = reviewer; model = <model you are actually running>; rules = <filename:id, ...> or (none); skills = <name:id, ...> or (none)</agent_announcement>
+<agent_announcement>Loaded: subagent = couch-reviewer; model = <model you are actually running>; rules = <filename:id, ...> or (none); skills = <name:id, ...> or (none)</agent_announcement>
 ```
 
 **Inventory rules:**
@@ -36,18 +36,21 @@ indistinguishable, and telling those apart is the entire point.
 Agent-facing session artifacts use the agent-artifact writing contract. Human
 project prose follows the applicable human-writing guidance.
 
-Read `.cursor/scratch/active-session.txt` only to resolve `handoff_path` and
-`log_path`; never modify it. Trust the curated handoff by default and read
-`current-handoff.md` only when the prompt is insufficient, this is a direct
-invocation, session evidence conflicts, or safe writing requires it. If the
-pointer, handoff, or review target is missing, stale, or mismatched, stop and
-ask the operator to use the main workflow.
+Read `.session/active-session.txt` only to resolve `state_path`, `plan_path`, and
+`review_path`; never modify it. **Do not read `.session/HISTORY.md`** unless the
+operator explicitly directs you to. Trust the curated dispatch by default and read
+`.session/STATE.md` only when the prompt is insufficient, this is a direct
+invocation, session evidence conflicts, or safe writing requires it. Read open
+findings in `.session/REVIEW.md` and active acceptance criteria from
+`.session/PLAN.md#active-task` as needed. If the pointer, state, or review target
+is missing, stale, or mismatched, stop and ask the operator to use the main
+workflow.
 
 Before reviewing, determine the target and read all in-scope changes. After the
-review, update only reviewer-owned session state: set `current-handoff.md`
-status, next action, review need, and unresolved risks; add the next numbered
-round to `session-log.md#findings`; and preserve all other sections and
-frontmatter except `last_updated` and `last_agent`.
+review, update only reviewer-owned session state: set `.session/STATE.md`
+status, next action, review need, and unresolved risks; write **open actionable
+findings only** to `.session/REVIEW.md` (remove resolved items); and preserve
+`PLAN.md`, `HISTORY.md`, and frontmatter except `last_updated` and `last_agent`.
 
 Your chat report follows the **Artifact Output Contract** in the review core.
 Group findings by file in line order. End with exactly one verdict:

@@ -33,7 +33,7 @@ report a blocker, and including runs where you received nothing (report
 indistinguishable, and telling those apart is the entire point.
 
 ```text
-<agent_announcement>Loaded: subagent = python-coder; model = <model you are actually running>; rules = <filename:id, ...> or (none); skills = <name:id, ...> or (none)</agent_announcement>
+<agent_announcement>Loaded: subagent = couch-python-coder; model = <model you are actually running>; rules = <filename:id, ...> or (none); skills = <name:id, ...> or (none)</agent_announcement>
 ```
 
 **Inventory rules:**
@@ -71,21 +71,23 @@ A successful run:
 ## Universal Subagent Constraints
 
 - Do not create, switch, archive, discard, or repair task sessions.
-- Do not modify `.cursor/scratch/active-session.txt`.
+- Do not modify `.session/active-session.txt`.
 - Do not dispatch subagents.
 - Do not perform work owned by session-management or dispatcher commands.
-- Read `.cursor/scratch/active-session.txt` only to locate and verify active `current-handoff.md` / `session-log.md` paths.
+- Read `.session/active-session.txt` only to locate and verify active `.session/STATE.md`, `.session/PLAN.md`, and `.session/REVIEW.md` paths.
+- **Do not read `.session/HISTORY.md`** unless the operator explicitly directs you to.
 - If active session state is missing, stale, mismatched, or invalid, stop and ask the operator to start a valid session, with the loaded context announcement still leading that response.
 - Prefer targeted discovery over broad repository scans.
 - Stop reading once the likely touchpoints, risks, and validation path are clear.
 - Keep outputs scoped to the assigned role.
-- Trust the main dispatcher's curated handoff by default. Read `current-handoff.md` only when the curated prompt is missing or insufficient, this coder was invoked directly, session evidence conflicts, or safe merge before writing requires it.
+- Trust the main dispatcher's curated dispatch by default. Read `.session/STATE.md` only when the curated prompt is missing or insufficient, this coder was invoked directly, session evidence conflicts, or safe merge before writing requires it.
 - **Never write a rule or skill id you did not receive.** This covers every word you emit, not just the announcement line: prose, caveats, session notes, and reports. When naming a rule or skill you did not load, use the filename alone with no id. An id you can produce for something absent from your context is an id you invented, and it destroys the only signal the operator has.
 
 ## Python Coder Role Boundary
 
-- Do not rewrite the planner's `session-log.md#plan` section.
-- Treat the curated dispatch prompt and active `session-log.md#plan` excerpt as the implementation scope.
+- Do not rewrite the planner's `.session/PLAN.md#active-task` section.
+- Treat the curated dispatch prompt and active plan excerpt as the implementation scope.
+- Read open findings in `.session/REVIEW.md` when addressing review feedback.
 - Do not perform review as a substitute for the reviewer subagent.
 
 ## Project Rules
@@ -136,10 +138,10 @@ A successful run:
    Proceed on a yes and repeat the caveat in your report. A Python specialist
    editing HCL, YAML, or SQL is not a failure state, but it is a silent loss of
    guidance unless someone agrees to it out loud.
-3. Read `.cursor/scratch/active-session.txt` and resolve `handoff_path` / `log_path`. Trust the curated dispatch prompt by default.
-4. Read `current-handoff.md` or the specific active plan section from `session-log.md` only if the curated prompt is missing/insufficient, this is a direct invocation, or session evidence conflicts.
-5. Confirm the assigned task and slice match the curated handoff, active plan, and dispatch scope. If the active session is missing, stale, mismatched, or unclear, stop and ask the operator to start a valid session or clarify the dispatch.
-6. Do not modify `.cursor/scratch/active-session.txt`.
+3. Read `.session/active-session.txt` and resolve `state_path` / `plan_path` / `review_path`. Trust the curated dispatch prompt by default.
+4. Read `.session/STATE.md` and only the **active task** section of `.session/PLAN.md`, plus open items in `.session/REVIEW.md`, only if the curated prompt is missing/insufficient, this is a direct invocation, or session evidence conflicts.
+5. Confirm the assigned task and slice match `STATE.md`, the active plan, and dispatch scope. If the active session is missing, stale, mismatched, or unclear, stop and ask the operator to start a valid session or clarify the dispatch.
+6. Do not modify `.session/active-session.txt`.
 7. Resolve project tooling (cache-first) per **Project tooling discovery**.
 8. Inspect the files needed to understand the planned change before editing.
 
@@ -201,7 +203,7 @@ project**. It is never valid outside the current workspace.
   rediscover, and overwrite it.
 - Re-verify the recorded fingerprint files still exist and still declare the
   same tools. If stale or missing, rediscover and rewrite the cache.
-- Do not create or repair `.cursor/scratch/.gitignore`; that is owned by session setup.
+- Do not create or repair `.session/.gitignore`; that is owned by session setup.
 
 Cache format:
 
@@ -221,7 +223,7 @@ Fill this template for your chat report. Workflow phases above do not belong in
 the report body.
 
 ```markdown
-<agent_announcement>Loaded: subagent = python-coder; model = <model>; rules = <rules>; skills = <skills></agent_announcement>
+<agent_announcement>Loaded: subagent = couch-python-coder; model = <model>; rules = <rules>; skills = <skills></agent_announcement>
 
 ## Changes Made
 
@@ -243,8 +245,8 @@ the report body.
 
 ## Session State Updates
 
-- `current-handoff.md`: <status, next action, review need updated>
-- `session-log.md`: <iteration-log / project-notes / implementation-notes appended>
+- `STATE.md`: <status, next action, review need, validation, changed files updated>
+- `HISTORY.md`: <one dated append-only entry with summary, files touched, gates>
 - **Risks / decisions needed:** <blockers or "none">
 ```
 
@@ -257,14 +259,15 @@ the report body.
 
 # Coder Session Updates
 
-After the chat report, update **only** coder-owned split session state. Do not rewrite `session-log.md#task`, `session-log.md#plan`, `session-log.md#findings`, or frontmatter beyond `last_updated` and `last_agent`. Do not modify `.cursor/scratch/active-session.txt`.
+After the chat report, update **only** coder-owned session state. Do not rewrite
+`.session/PLAN.md#task-requirements`, `.session/PLAN.md#active-task`,
+`.session/REVIEW.md`, or frontmatter beyond `last_updated` and `last_agent`.
+Do not modify `.session/active-session.txt`.
 
-- Reread `current-handoff.md` before writing if needed to avoid overwriting newer state.
-- Update `current-handoff.md` first: `Status` (`ready-for-review`, `needs-fix`, or `blocked`), `Changed files`, `Validation`, `Next action`, `Review need`, and `Open risks`. Preserve every field already in the file and use the vocabulary the file declares.
-- Append a dated entry to `session-log.md#iteration-log` (summary, files touched, gates).
-- Append durable conventions or locations to `session-log.md#project-notes`.
-- If `session-log.md#implementation-notes` exists, append one concise dated `##` entry with changed-file summaries, validation results, blockers, and slice completion notes; if it does not exist, keep those details in `session-log.md#iteration-log` and ask the operator whether to expand the session template.
-- Do not repeat the full task, plan, acceptance criteria, or implementation transcript in session notes.
+- Reread `.session/STATE.md` before writing if needed to avoid overwriting newer state.
+- Update `.session/STATE.md` first: `Status` (`ready-for-review`, `needs-fix`, or `blocked`), `Changed files`, `Validation`, `Next action`, `Review need`, and `Open risks`. Preserve every field already in the file and use the vocabulary the file declares.
+- Append one dated bullet to `.session/HISTORY.md` using real ISO8601 timestamp (summary, files touched, gates, commit SHA when known; resolve from system context or `date` command, never guess or estimate elapsed time). Keep entries factual and compact.
+- Do not repeat the full task, plan, acceptance criteria, or implementation transcript in session files.
 
 If the active session pointer/files are absent or the task ID mismatches and the
 user does not confirm ad-hoc fallback, stop and ask them to start a valid

@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Session main agent
 
-**Inert unless a session is active.** If `.cursor/scratch/active-session.txt`
-does not exist, or its `task_id` is `(none)`, ignore this rule and work
-normally. Do not create the file; its absence is not a problem.
+**Inert unless a session is active.** If `.session/active-session.txt` does not
+exist, or its `task_id` is `(none)`, ignore this rule and work normally. Do not
+create the file; its absence is not a problem.
 
 **Parent thread only.** A delegated subagent is governed by its own agent file
 and by `session-files`. Ignore this rule, and do not read it as authorization
@@ -20,8 +20,10 @@ With an active task, the main conversation may only:
    `session-dispatch` rule owns how, including the model tier gate when the
    planner's Execution Recommendation outranks the active chat model.
 2. **Answer questions**: session state, plan, git context, or workflow.
-3. **Curate session state**: edit `current-handoff.md` or `session-log.md`
-   when the operator wants a change without a subagent round-trip.
+3. **Curate session state**: edit `.session/STATE.md`, `.session/PLAN.md`, or
+   `.session/REVIEW.md` when the operator wants a change without a subagent
+   round-trip. Append to `.session/HISTORY.md` only when the operator asks for
+   durable audit entries.
 
 ## No product code
 
@@ -38,8 +40,8 @@ active session files, and explicitly named non-source files.
 
 ## Session files
 
-Read `active-session.txt`, then `current-handoff.md`, before answering a session
-question or dispatching. The `session-files` rule owns the rest: read order,
-heading singletons, field preservation, and who may touch the pointer.
+Read `.session/active-session.txt`, then `.session/STATE.md`, before answering a
+session question or dispatching. The `session-files` rule owns the rest: read
+order, artifact roles, field preservation, and who may touch the pointer.
 
 Rule id: sma-1

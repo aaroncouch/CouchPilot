@@ -5,8 +5,8 @@ alwaysApply: true
 
 # Session dispatch contract
 
-**Inert unless a session is active.** If `.cursor/scratch/active-session.txt`
-does not exist, or its `task_id` is `(none)`, ignore this rule.
+**Inert unless a session is active.** If `.session/active-session.txt` does not
+exist, or its `task_id` is `(none)`, ignore this rule.
 
 **Parent thread only.** A delegated subagent does not dispatch and does not
 build these prompts. Ignore this rule, and do not read it as authorization for
@@ -55,8 +55,9 @@ it invalid, resolved, or a non-issue first. The specialist owns that call.
 ## Model tier gate
 
 Before dispatching `/couch-python-coder` or `/couch-reviewer`, read the active
-plan's **## Execution Recommendation** from `session-log.md#plan` and the
-matching fields on `current-handoff.md` (`Recommended Model`, `Complexity`).
+plan's **## Execution Recommendation** from `.session/PLAN.md` (active task
+section) and the matching fields on `.session/STATE.md` (`Recommended Model`,
+`Complexity`).
 
 | Scenario | Required Action | Prohibited Shortcut |
 |---|---|---|

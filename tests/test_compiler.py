@@ -29,6 +29,8 @@ from couchpilot.compiler import (
     validate_asset,
 )
 
+REPO_ASSETS_ROOT = Path(__file__).resolve().parents[1] / "couchpilot" / "assets"
+
 
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -590,6 +592,83 @@ class DestinationForTests(unittest.TestCase):
             destination_for("chatgpt", "rule", "widget")
         with self.assertRaises(KeyError):
             destination_for("cursor", "workflow", "widget")
+
+
+class RealAssetsCompileTests(unittest.TestCase):
+    def test_checkpoint_asset_compiles_for_cursor_and_claude(self) -> None:
+        artifacts = compile_assets(REPO_ASSETS_ROOT)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+        self.assertIn(("checkpoint", "cursor", "command"), by_key)
+        self.assertIn(("checkpoint", "claude", "skill"), by_key)
+
+        command = by_key[("checkpoint", "cursor", "command")]
+        skill = by_key[("checkpoint", "claude", "skill")]
+        self.assertEqual(command.relative_path, Path("commands/couch-checkpoint.md"))
+        self.assertEqual(skill.relative_path, Path("skills/couch-checkpoint/SKILL.md"))
+
+        command_doc = parse_document(command.content)
+        skill_doc = parse_document(skill.content)
+        self.assertIn(
+            "Transition completed task to HISTORY.md",
+            command_doc.frontmatter["description"],
+        )
+        self.assertIn(
+            "Transition completed task to HISTORY.md",
+            skill_doc.frontmatter["description"],
+        )
+        self.assertIs(skill_doc.frontmatter["disable-model-invocation"], True)
+        self.assertIn("State transition (10 steps)", command.content)
+        self.assertIn("State transition (10 steps)", skill.content)
+
+    def test_migrate_session_asset_compiles_for_cursor_and_claude(self) -> None:
+        artifacts = compile_assets(REPO_ASSETS_ROOT)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+        self.assertIn(("migrate-session", "cursor", "command"), by_key)
+        self.assertIn(("migrate-session", "claude", "skill"), by_key)
+
+        command = by_key[("migrate-session", "cursor", "command")]
+        skill = by_key[("migrate-session", "claude", "skill")]
+        self.assertEqual(command.relative_path, Path("commands/couch-migrate-session.md"))
+        self.assertEqual(skill.relative_path, Path("skills/couch-migrate-session/SKILL.md"))
+
+        command_doc = parse_document(command.content)
+        skill_doc = parse_document(skill.content)
+        self.assertIn(
+            "Migrate a legacy .cursor/scratch session",
+            command_doc.frontmatter["description"],
+        )
+        self.assertIn(
+            "Migrate a legacy .cursor/scratch session",
+            skill_doc.frontmatter["description"],
+        )
+        self.assertIs(skill_doc.frontmatter["disable-model-invocation"], True)
+        self.assertIn("Disambiguation & Operator Queries", command.content)
+        self.assertIn("Disambiguation & Operator Queries", skill.content)
+
+    def test_adjudicate_review_asset_compiles_for_cursor_and_claude(self) -> None:
+        artifacts = compile_assets(REPO_ASSETS_ROOT)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+        self.assertIn(("adjudicate-review", "cursor", "command"), by_key)
+        self.assertIn(("adjudicate-review", "claude", "skill"), by_key)
+
+        command = by_key[("adjudicate-review", "cursor", "command")]
+        skill = by_key[("adjudicate-review", "claude", "skill")]
+        self.assertEqual(command.relative_path, Path("commands/couch-adjudicate-review.md"))
+        self.assertEqual(skill.relative_path, Path("skills/couch-adjudicate-review/SKILL.md"))
+
+        command_doc = parse_document(command.content)
+        skill_doc = parse_document(skill.content)
+        self.assertIn(
+            "Adjudicate external review comments",
+            command_doc.frontmatter["description"],
+        )
+        self.assertIn(
+            "Adjudicate external review comments",
+            skill_doc.frontmatter["description"],
+        )
+        self.assertIs(skill_doc.frontmatter["disable-model-invocation"], True)
+        self.assertIn("Adjudication Protocol", command.content)
+        self.assertIn("Adjudication Protocol", skill.content)
 
 
 class FindWslWindowsCursorDirTests(unittest.TestCase):

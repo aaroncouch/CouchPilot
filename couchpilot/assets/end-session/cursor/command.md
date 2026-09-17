@@ -16,51 +16,58 @@ Example:
 
 ## Behavior
 
-1. Read `.cursor/scratch/active-session.txt`.
+1. Read `.session/active-session.txt`.
 2. Verify active `task_id` matches requested task.
    - If mismatch, ask for confirmation before proceeding.
-3. Read `handoff_path` and `log_path` from the active pointer.
-   - If only legacy `path:` exists, treat it as a monolithic session log and use
-     the legacy single-file close path.
-4. Update frontmatter in `current-handoff.md` and `session-log.md` before closing:
+3. Read `state_path`, `plan_path`, `review_path`, and `history_path` from the
+   active pointer (default to `.session/STATE.md`, `.session/PLAN.md`,
+   `.session/REVIEW.md`, `.session/HISTORY.md` when paths are omitted).
+4. Resolve current ISO8601 timestamp (use ambient system timestamp context or
+   run `date -u +"%Y-%m-%dT%H:%M:%SZ"` / `date -Iseconds`; never guess or
+   extrapolate).
+5. Update frontmatter in `STATE.md`, `PLAN.md`, `REVIEW.md`, and `HISTORY.md`
+   before closing where present:
    - `last_updated: <ISO8601 now>`
    - `last_agent: end-session`
-5. Update the `current-handoff.md` body before closing:
+6. Update the `STATE.md` body before closing:
    - `Status: completed`: `/couch-end-session` is the only owner of this value
    - `Next action: none`
    - preserve every other field, including concise final validation and
      changed-file context
-6. Append iteration log entry to `session-log.md`:
+7. Append to `.session/HISTORY.md`:
 
 ```text
 - <ISO8601> [end-session] Session ended. <optional note>
 ```
 
-7. Move the whole session directory (native move; no read+rewrite) to:
-   - `.cursor/scratch/session-archive/<session-directory-name>/`
-8. Clear active pointer by rewriting `.cursor/scratch/active-session.txt`:
+8. Ensure `.session/archive/<task_id>/` exists, then move the active session
+   artifacts (native move; no read+rewrite) into that directory:
+   - `STATE.md`, `PLAN.md`, `REVIEW.md`, `HISTORY.md`
+   - Do not move `.session/.gitignore`, `active-session.txt`, or `archive/`.
+9. Clear active pointer by rewriting `.session/active-session.txt`:
 
 ```text
 task_id: (none)
-handoff_path: (none)
-log_path: (none)
-path: (none)
+state_path: (none)
+plan_path: (none)
+review_path: (none)
+history_path: (none)
 git_ref: (none)
 ```
 
-9. Never archive/discard any other session files.
+10. Never archive/discard any other session files unless the operator asks.
 
 ## File operation policy (required)
 
 - Prefer filesystem-native move/rename operations for archiving.
 - Use shell-native move commands (`mv` on POSIX, `Move-Item` on PowerShell)
-  when moving the session directory.
+  when moving session artifacts into `archive/`.
 - Do not create archive files by reading session content and rewriting it to a
   new destination path.
-- If metadata must be updated before close, edit `current-handoff.md` and
-  `session-log.md` in place, then move that same directory object.
-- Verify move success by confirming the source path is absent and destination
-  path exists.
+- If metadata must be updated before close, edit the four artifacts in place,
+  then move those same file objects.
+- Verify move success by confirming each source path is absent and the
+  destination path exists.
 - If native move fails (for example, cross-device), report the blocker and ask
   before using a copy+delete fallback.
 
@@ -68,5 +75,5 @@ git_ref: (none)
 
 Return:
 - ended task id
-- archived session directory path
+- archived directory path (`.session/archive/<task_id>/`)
 - whether active pointer was cleared

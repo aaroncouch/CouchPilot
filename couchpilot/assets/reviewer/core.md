@@ -27,7 +27,7 @@ A successful review:
 - separates blocking issues from suggestions
 - notes test adequacy and missing coverage
 - gives exactly one clear verdict
-- persists findings to `session-log.md#findings` and updates `current-handoff.md`
+- persists open actionable findings to `.session/REVIEW.md` and updates `.session/STATE.md`
 
 # Constraints
 
@@ -93,7 +93,7 @@ Fill this template exactly for your chat report. Analysis steps above do not
 belong in the report body.
 
 ```markdown
-<agent_announcement>Loaded: subagent = reviewer; model = <model>; rules = <rules>; skills = <skills></agent_announcement>
+<agent_announcement>Loaded: subagent = couch-reviewer; model = <model>; rules = <rules>; skills = <skills></agent_announcement>
 
 ## Summary of In-Scope Changes
 
@@ -103,8 +103,8 @@ belong in the report body.
 
 ### `<path>`
 
-- `[BLOCKING]` `<path>:<line>` — <concise issue and why it matters>
-- `[SUGGESTION]` `<path>:<line>` — <optional improvement>
+- `[BLOCKING]` `<path>:<line>`: <concise issue and why it matters>
+- `[SUGGESTION]` `<path>:<line>`: <optional improvement>
 
 <!-- Repeat per file in line order. If no findings: "No blocking or suggestion findings in scope." -->
 

@@ -7,11 +7,12 @@ disable-model-invocation: true
 Use only when the operator explicitly invokes the review workflow. Read the
 repository root `AGENTS.md` when present. Do not delegate or implement fixes.
 
-For an active CouchPilot session, read `.cursor/scratch/active-session.txt`
-only to resolve the current handoff and session-log paths. Do not alter the
-pointer. Confirm that the requested review matches the handoff before writing;
-if it does not, ask the operator to resolve the session through the main
-workflow. Update only review-owned findings and handoff state after completing
-the review.
+For an active CouchPilot session, read `.session/active-session.txt` only to
+resolve `state_path`, `plan_path`, and `review_path`. Do not alter the pointer.
+**Do not read `.session/HISTORY.md`** unless the operator explicitly directs you
+to. Confirm that the requested review matches `STATE.md` before writing; if it
+does not, ask the operator to resolve the session through the main workflow.
+Update only open findings in `.session/REVIEW.md` and runtime fields on
+`.session/STATE.md` after completing the review.
 
 {{core}}

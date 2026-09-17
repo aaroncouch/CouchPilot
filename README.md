@@ -19,7 +19,7 @@ python sync.py
 
 `sync.py` compiles canonical sources in `couchpilot/assets/` and installs
 rendered artifacts under `~/.cursor` and/or `~/.claude`. By default it
-**autodetects** which host directories already exist on your machine — if you
+**autodetects** which host directories already exist on your machine. If you
 only use Cursor, a lone `~/.cursor` directory is enough; `~/.claude` is not
 required.
 
@@ -45,7 +45,7 @@ overridable via `couchpilot.json`). It syncs **only** the hosts it finds:
 
 | Your machine | What happens |
 |---|---|
-| Only `~/.cursor` exists | Syncs Cursor only — no error, no Claude install attempted |
+| Only `~/.cursor` exists | Syncs Cursor only (no error, no Claude install attempted) |
 | Only `~/.claude` exists | Syncs Claude Code only |
 | Both exist | Syncs both |
 | Neither exists | Exits with an error; pass `--target cursor` or `--target all` to create one |
@@ -87,7 +87,7 @@ manifest-claimed files are ever removed on `--prune`; hand-written config in
 CouchPilot keeps task context **on disk instead of in the chat window**.
 
 A long chat accumulates the task description, the plan, every implementation
-detail, and every review finding — all re-sent on every turn. When the window
+detail, and every review finding (all re-sent on every turn). When the window
 fills, the model retraces the conversation to summarize it, and token usage
 spikes precisely when the chat is already at its most expensive.
 
@@ -97,14 +97,16 @@ The loop avoids that by keeping the durable record in markdown:
 - Delegate to a planner for a concrete implementation plan.
 - Delegate that plan to a Python-focused coding subagent.
 - Delegate the diff to a reviewer subagent.
-- Each subagent reads only what it needs from `current-handoff.md`, does one
-  job in its own fresh context, writes its result back to disk, and exits.
+- Each subagent reads only what it needs from `.session/STATE.md` (and targeted
+  sections of `PLAN.md` / `REVIEW.md`), does one job in its own fresh context,
+  writes its result back to disk, and exits. Cold history stays in `HISTORY.md`,
+  which subagents do not read by default.
 
 The main chat stays a thin dispatcher. It never holds the implementation
 transcript, so it stays usable far longer before approaching the limit.
 
 **Subagents require an active session.** A dispatch with no session has no
-handoff to read and nowhere to write its result. Run `/couch-begin-session`
+session state to read and nowhere to write its result. Run `/couch-begin-session`
 first, or handle the change directly in the main chat.
 
 ## When Not To Use It
@@ -120,7 +122,7 @@ context reset, you do not need a session.
 ## Host Profiles & `couchpilot.json`
 
 Install targets are defined once in `couchpilot/hosts.py` as immutable
-`HostProfile` dataclasses — not scattered through `sync.py` or the compiler.
+`HostProfile` dataclasses rather than scattered through `sync.py` or the compiler.
 
 | Profile | Class | Install dir | Notable defaults |
 |---|---|---|---|
@@ -177,7 +179,7 @@ family: rule
 globs: "**/*.py"
 ```
 
-The compiler synthesizes host-native scope — no `cursor/rule.md` or
+The compiler synthesizes host-native scope with no `cursor/rule.md` or
 `claude/rule.md` boilerplate:
 
 | `globs` | Cursor | Claude |
@@ -209,11 +211,12 @@ couchpilot/assets/session-dispatch/
 
 Installed names carry a `couch-` prefix. The two hosts play different roles:
 
-- **Cursor** — day-to-day loop: session commands, planner/coder/reviewer
-  subagents, always-on quality and session rules.
-- **Claude Code** — manual-invocation bridge for high-reasoning workflows
-  (`/couch-planner`, `/couch-reviewer`, `/couch-task-brief`) without leaving
-  the on-disk session protocol.
+- **Cursor**: day-to-day loop with session commands, planner/coder/reviewer
+  subagents, and always-on quality and session rules.
+- **Claude Code**: manual-invocation bridge for high-reasoning workflows
+  (`/couch-planner`, `/couch-reviewer`, `/couch-task-brief`,
+  `/couch-checkpoint`, `/couch-migrate-session`) without leaving the on-disk
+  session protocol.
 
 ## Polyglot Prompt Conventions
 
@@ -235,7 +238,7 @@ o3-mini, Gemini Flash Thinking) may emit summaries or title blocks before the
 report; the tag makes parsing robust:
 
 ```text
-<agent_announcement>Loaded: subagent = python-coder; model = Sonnet 5; rules = couch-python.mdc:py-1; skills = couch-python-style:pys-1</agent_announcement>
+<agent_announcement>Loaded: subagent = couch-python-coder; model = Sonnet 5; rules = couch-python.mdc:py-1; skills = couch-python-style:pys-1</agent_announcement>
 ```
 
 Anything reported as `:MISSING` did not load. Host-specific announcement
@@ -272,46 +275,141 @@ Compiled install layout:
 ### Rules
 
 - `couch-code-quality`, `couch-test-integrity`, `couch-project-guide`,
-  `couch-agent-artifact-writing`, `couch-session-artifacts` — global.
-- `couch-python` — `*.py` files.
-- `couch-python-tests` — test file patterns.
+  `couch-agent-artifact-writing`, `couch-session-artifacts` (global).
+- `couch-python` (`*.py` files).
+- `couch-python-tests` (test file patterns).
 - `couch-session-main-agent`, `couch-session-dispatch`, `couch-writing-voice`
-  — Cursor-only session/workflow rules.
+  (Cursor-only session and workflow rules).
 
 Session rules are **inert** without an active session (no
-`.cursor/scratch/active-session.txt` or `task_id: (none)`).
+`.session/active-session.txt` or `task_id: (none)`).
 
 ### Skills, subagents, commands
 
 | Role | Cursor | Claude Code |
 |---|---|---|
 | Plan | `/couch-planner` (subagent) | `/couch-planner` (manual skill) |
-| Implement | `/couch-python-coder` (subagent) | — |
+| Implement | `/couch-python-coder` (subagent) | (main chat / direct) |
 | Review | `/couch-reviewer` (subagent) | `/couch-reviewer` (manual skill) |
+| Adjudicate external review | `/couch-adjudicate-review` (command) | `/couch-adjudicate-review` (manual skill) |
 | Distill brief | `/couch-task-brief` (command) | `/couch-task-brief` (manual skill) |
+| Checkpoint (task transition) | `/couch-checkpoint` (command) | `/couch-checkpoint` (manual skill) |
+| Migrate legacy session | `/couch-migrate-session` (command) | `/couch-migrate-session` (manual skill) |
 | Curate `AGENTS.md` | `/couch-curate-project-guide` (command) | `/couch-curate-project-guide` (manual skill) |
 
-Cursor subagents use `model: inherit` — they run whatever model the parent
-chat is set to. Pin a specific model before dispatch; on Auto, `inherit`
-inherits Auto's pick.
+Cursor subagents use `model: inherit` to run whatever model the parent chat
+is set to. Pin a specific model before dispatch; on Auto, `inherit` inherits
+Auto's pick.
 
-Other commands: `/couch-begin-session`, `/couch-end-session`,
+Other commands: `/couch-begin-session`, `/couch-checkpoint`, `/couch-migrate-session`, `/couch-adjudicate-review`, `/couch-end-session`,
 `/couch-audit-test-integrity`, `/couch-deslop-main-diff`,
 `/couch-deslop-workspace`.
 
 ## Daily Workflow
 
 1. Optional: `/couch-task-brief` to distill raw notes into
-   `.cursor/scratch/task-brief.md`.
+   `.session/task-brief.md`.
 2. `/couch-begin-session task: feat-foo-module …` (or `use previous task brief`).
-3. `/couch-planner` — set the model picker first.
-4. `/couch-python-coder` — execute the approved plan or slice.
-5. `/couch-reviewer` — review the diff.
-6. Iterate coder/reviewer as needed.
-7. `/couch-end-session task: feat-foo-module completed`.
+3. `/couch-planner` (set the model picker first).
+4. `/couch-python-coder` (executes the active plan slice).
+5. `/couch-reviewer` (reviews the changed diff).
+6. Iterate coder and reviewer as needed.
+7. When a slice or queued task is done (evidence on `STATE.md`, review clean or
+   findings addressed), run `/couch-checkpoint` to append `HISTORY.md`, prune
+   resolved items from `REVIEW.md`, collapse completed detail in `PLAN.md`, and
+   regenerate compact `STATE.md` for the next queued task.
+8. Repeat steps 4 through 7 for remaining slices, then close with
+   `/couch-end-session task: feat-foo-module completed`.
 
-Keep delegated prompts short. The dispatcher curates from `current-handoff.md`
-plus targeted `session-log.md` excerpts.
+Keep delegated prompts short. The dispatcher curates from `.session/STATE.md`
+plus targeted `PLAN.md` and `REVIEW.md` section anchors.
+
+## End-to-End Workflow Example
+
+Here is a walk-through of a basic task: fixing exponential backoff jitter in a
+retry helper.
+
+### 1. Begin the session
+
+In Cursor's main chat:
+
+```text
+/couch-begin-session task: fix-retry-backoff cap maximum delay at 30s and add full jitter to retry backoff calculation in utils/retry.py
+```
+
+This creates the `.session/` directory, updates `.gitignore`, and scaffolds:
+- `.session/active-session.txt`: pointer to active session files.
+- `.session/STATE.md`: hot runtime state initialized to `Status: planning`.
+- `.session/PLAN.md`: initialized with task requirements.
+- `.session/REVIEW.md`: initialized with empty findings (`(none)`).
+- `.session/HISTORY.md`: cold audit log recording session start.
+
+### 2. Plan the implementation
+
+Dispatch the planner:
+
+```text
+/couch-planner
+```
+
+The planner inspects `utils/retry.py` and `tests/test_retry.py`, then updates:
+- `.session/PLAN.md#active-task`: ordered steps, jitter invariant (`0 <= delay <= min(max_delay, base * 2**attempt)`), test cases, and execution recommendation (`Complexity: low`, `Model: Fast/Cheap`).
+- `.session/STATE.md`: sets `Status: ready-for-code`, `Next action: dispatch-single-pass`.
+
+### 3. Implement with Python coder
+
+Dispatch the implementation subagent:
+
+```text
+/couch-python-coder
+```
+
+The subagent executes in a fresh context:
+1. Reads `STATE.md` and `PLAN.md#active-task`.
+2. Edits `utils/retry.py` to add jitter calculation and max delay clamp.
+3. Adds unit tests in `tests/test_retry.py` verifying delay bounds.
+4. Runs project test and lint gates (e.g. `pytest tests/test_retry.py`).
+5. Updates `.session/STATE.md` (`Status: ready-for-review`, `Validation: pytest -> 4 passed`).
+6. Appends a one-bullet completion note to `.session/HISTORY.md`.
+
+### 4. Review the change
+
+Dispatch the reviewer:
+
+```text
+/couch-reviewer
+```
+
+The reviewer inspects the git diff against acceptance criteria in `PLAN.md`:
+1. Verifies delay bounds and test integrity.
+2. Returns a chat report with verdict: `Verdict: approve`.
+3. Updates `.session/STATE.md` (`Status: ready-to-close`).
+
+*(If findings were found, they would be written to `.session/REVIEW.md`, and the coder would be dispatched to address them).*
+
+### 5. Checkpoint (if transitioning slices)
+
+For multi-slice tasks, run:
+
+```text
+/couch-checkpoint
+```
+
+This collapses the completed slice into `HISTORY.md`, purges resolved findings
+from `REVIEW.md`, promotes the next task in `PLAN.md`, and refreshes `STATE.md`.
+For a single-pass task with no further slices, proceed directly to close.
+
+### 6. End and archive the session
+
+Close the completed session:
+
+```text
+/couch-end-session task: fix-retry-backoff completed and verified
+```
+
+This marks `Status: completed`, records the final timestamp in `HISTORY.md`,
+moves `STATE.md`, `PLAN.md`, `REVIEW.md`, and `HISTORY.md` into
+`.session/archive/fix-retry-backoff/`, and resets `.session/active-session.txt`.
 
 ## Choosing Depth & Model Tier Gate
 
@@ -328,7 +426,7 @@ After planning, `# Plan` includes **## Execution Recommendation**:
 - **Rationale:** one sentence
 
 The planner mirrors `Recommended Model`, `Complexity`, and `Reasoning Depth`
-onto `current-handoff.md` (starting as `unassigned` from `/couch-begin-session`).
+onto `.session/STATE.md` (starting as `unassigned` from `/couch-begin-session`).
 
 ### Dispatcher model tier gate
 
@@ -340,7 +438,7 @@ model looks Fast/Cheap (Haiku, mini, flash, nano, etc.), the dispatcher asks:
 Planner recommended [Recommended Model Tier] for this slice due to [Rationale]. Proceed with current model or switch first?
 ```
 
-It never switches models for you — confirm to proceed or change the model
+It never switches models for you: confirm to proceed or change the model
 picker first. Clean dispatches reply with one line:
 
 ```text
@@ -355,17 +453,19 @@ Dispatched to /couch-python-coder (model: Sonnet 4).
 | **Balanced** | Feature work, small refactors, known bugs | Architecture, security, vague tasks |
 | **High-Reasoning** | Multi-file refactors, async, auth, production paths | Cleanup, formatting, docs-only |
 
-## Scratch Files
+## Session files (`.session/`)
 
-- Active pointer: `.cursor/scratch/active-session.txt`
-- Task brief: `.cursor/scratch/task-brief.md`
-- Handoff: `.cursor/scratch/sessions/<session-id>/current-handoff.md`
-- Log: `.cursor/scratch/sessions/<session-id>/session-log.md`
-- Archive: `.cursor/scratch/session-archive/<session-id>/`
-- Tooling cache: `.cursor/scratch/tooling.md`
+- Active pointer: `.session/active-session.txt`
+- Hot runtime context: `.session/STATE.md`
+- Active plan: `.session/PLAN.md`
+- Open review findings: `.session/REVIEW.md`
+- Cold audit trail: `.session/HISTORY.md` (subagents do not read by default)
+- Task brief: `.session/task-brief.md`
+- Archive: `.session/archive/<task-id>/`
+- Tooling cache (Cursor coder): `.cursor/scratch/tooling.md`
 
 Only session-start/end commands write the active pointer. Subagents read it
-to locate handoff paths but never modify it.
+to locate session paths but never modify it.
 
 ## After Sync
 
@@ -373,10 +473,10 @@ Restart Cursor or Claude Code (or open a fresh chat) so cached rules reload.
 
 Troubleshooting loaded-context announcements:
 
-- `couch-python.mdc:MISSING` — open or attach a `*.py` file (glob-scoped rule).
-- `couch-python-style:MISSING` — skill paths did not match, or skills are not
+- `couch-python.mdc:MISSING`: open or attach a `*.py` file (glob-scoped rule).
+- `couch-python-style:MISSING`: skill paths did not match, or skills are not
   reaching subagents in your Cursor version.
-- Wrong `model` in announcement — parent chat was on Auto; `inherit` resolved
+- Wrong `model` in announcement: parent chat was on Auto; `inherit` resolved
   to Auto's choice.
 
 ## Developing CouchPilot

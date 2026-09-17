@@ -266,7 +266,7 @@ The planner persists **## Execution Recommendation** under `# Plan`:
 - **Rationale:** <one sentence>
 ```
 
-`current-handoff.md` mirrors `Recommended Model`, `Complexity`, and
+`.session/STATE.md` mirrors `Recommended Model`, `Complexity`, and
 `Reasoning Depth`. The Cursor `session-dispatch` rule gates
 `/couch-python-coder` and `/couch-reviewer` when a high-complexity plan
 recommends a tier above the active chat model.

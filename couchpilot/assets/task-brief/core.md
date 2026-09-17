@@ -12,14 +12,17 @@ session work.
 1. Read the provided raw notes.
    - If no notes are provided, ask the operator to paste the task rambling or
      describe the problem.
-2. Derive a structured brief with the sections below.
-3. Ask clarification only when missing information would materially change the
+2. Resolve current ISO8601 timestamp (use ambient system timestamp context or
+   run `date -u +"%Y-%m-%dT%H:%M:%SZ"` / `date -Iseconds`; never guess or
+   extrapolate).
+3. Derive a structured brief with the sections below.
+4. Ask clarification only when missing information would materially change the
    task boundary, safety, or likely implementation path.
    - If a detail is helpful but not required, keep it as `TBD` or an open
      question instead of blocking.
-4. Write the latest brief to the host-defined CouchPilot staging path using the
+5. Write the latest brief to the host-defined CouchPilot staging path using the
    output contract below.
-5. Do not create, switch, close, or modify an active session while preparing a
+6. Do not create, switch, close, or modify an active session while preparing a
    task brief. The host wrapper defines staging and session-start behavior.
 
 # Artifact Output Contract

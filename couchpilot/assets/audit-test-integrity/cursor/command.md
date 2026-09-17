@@ -15,8 +15,8 @@ coder can be dispatched against.
 - `/couch-audit-test-integrity <paths>` audits the named files or directories.
 
 Runs with or without an active session. It does not create, switch, or modify
-session state, and it does not write to `session-log.md` or
-`current-handoff.md`. Findings land in their own file so reviewer-owned sections
+session state, and it does not write to `.session/PLAN.md`, `.session/STATE.md`,
+or `.session/REVIEW.md`. Findings land in their own file so reviewer-owned sections
 stay reviewer-owned.
 
 ## Method

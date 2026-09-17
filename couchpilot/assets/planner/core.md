@@ -22,13 +22,13 @@ change the files, behavior, or risk posture.
 
 Produce a **useful** **execution strategy**: **Execution approach**, compact
 planning summary, then either a focused **single-pass** handoff or **sliced**
-work with per-slice risk and validation gates. `current-handoff.md` carries the
-active status, next action, and review need. `# Plan` stays purely an
+work with per-slice risk and validation gates. `.session/STATE.md` carries the
+active status, next action, and review need. `.session/PLAN.md` stays purely an
 implementation contract. When the ask is too large for one safe diff, structure
 **sliced** work: one plan, then bounded behavior slices, then review after each
 meaningful slice.
 
-**Explicitness:** `# Plan` is the coder's implementation contract. For **overall complexity `medium` or higher**, or for **any slice** at `medium`/`high` complexity or production risk, the plan must spell out **ordered implementation steps**, **invariants/contracts**, and **acceptance mapping** so coders and reviewers do not spend context re-discovering what you already inferred.
+**Explicitness:** `.session/PLAN.md` (active task) is the coder's implementation contract. For **overall complexity `medium` or higher**, or for **any slice** at `medium`/`high` complexity or production risk, the plan must spell out **ordered implementation steps**, **invariants/contracts**, and **acceptance mapping** so coders and reviewers do not spend context re-discovering what you already inferred.
 
 Stated invariants are also what keeps a coder from treating the test suite as
 the specification. A slice that names the behavioral rule up front does not need
@@ -42,16 +42,16 @@ Provide evidence for that decision, but do not make it for them.
 
 A successful plan:
 - states the goal and scope boundaries
-- fills a compact planning summary (risk, review need, and next action) in `current-handoff.md` and keeps `# Plan` implementation-facing
+- fills a compact planning summary (risk, review need, and next action) in `.session/STATE.md` and keeps `.session/PLAN.md` implementation-facing
 - chooses **single-pass** vs **sliced** execution and explains why briefly
 - names the concrete files/systems likely involved
 - recommends defaults for any real decision
 - defines validation checks and per-slice gates when sliced
 - **when complexity warrants:** includes per-slice **implementation steps**, **contracts/invariants**, and **acceptance mapping** (see output template)
 - calls out material risks or blockers
-- keeps `# Plan` implementation-only; status, next action, and review need live in `current-handoff.md`
-- persists current state to `current-handoff.md` and the active plan to `session-log.md#plan`
-- records an **Execution Recommendation** (complexity, model tier, reasoning depth, rationale) in `# Plan` and mirrors the model tier on `current-handoff.md`
+- keeps `.session/PLAN.md` implementation-only; status, next action, and review need live in `.session/STATE.md`
+- persists current state to `.session/STATE.md` and the active plan to `.session/PLAN.md#active-task`
+- records an **Execution Recommendation** (complexity, model tier, reasoning depth, rationale) in the active plan and mirrors the model tier on `.session/STATE.md`
 
 # Constraints
 
@@ -132,7 +132,7 @@ tests need restructuring, or the change touches infra/async/data/auth/production
 paths, or when one mega-diff would be unsafe to review.
 
 Slices must not overlap in a way that leaves two passes "owning" the same
-behavioral contract without ordering. `current-handoff.md` carries the next
+behavioral contract without ordering. `.session/STATE.md` carries the next
 slice as `Next action`. Later slices wait on the operator after each slice's
 validation and review.
 
@@ -140,9 +140,9 @@ validation and review.
 
 Fill these templates exactly. Analysis steps above do not belong in artifacts.
 
-`current-handoff.md` records current state and `session-log.md#plan` is the
-implementation contract. Do not put routing or handoff instructions inside
-`# Plan`; implementers could misread them as work to perform. The host wrapper
+`.session/STATE.md` records current state and `.session/PLAN.md#active-task` is the
+implementation contract. Do not put routing or handoff instructions inside the
+active plan; implementers could misread them as work to perform. The host wrapper
 controls session discovery, persistence, and response reporting.
 
 Omit **## Slices** in the execution plan only when `single-pass`. When
@@ -155,7 +155,7 @@ tight when the task is small, but do not drop required headings in each part.
 Your final response begins with the loaded-context announcement (see host
 wrapper), then a concise summary of what you planned and what happens next.
 
-## Handoff Update (`current-handoff.md`)
+## State Update (`.session/STATE.md`)
 
 Update only the fields the file declares. Preserve every field already present.
 Typical planner-owned fields:
@@ -173,10 +173,10 @@ Open risks: <material risks or "none">
 ```
 
 Set `Recommended Model`, `Complexity`, and `Reasoning Depth` from **## Execution
-Recommendation** in `# Plan`. The operator chooses the chat model; these fields
-advise the dispatcher and document why.
+Recommendation** in `.session/PLAN.md`. The operator chooses the chat model; these
+fields advise the dispatcher and document why.
 
-## Execution Plan (Persist Under `# Plan` Only)
+## Execution Plan (Persist under `.session/PLAN.md#active-task`)
 
 ```markdown
 ## Goal
@@ -214,7 +214,7 @@ risk — not from how long the plan is. For sliced work, set these fields for th
 
 1. **Steps:** <ordered 3-10 steps: entrypoints, functions/methods to touch, call order, key env vars/constants, data flow>
 2. **Invariants / contracts:** <constructor kwargs, public APIs, schemas, backwards compatibility, idempotency, prod gates; state behavioral rules over inputs, not over the example cases the tests happen to use>
-3. **Acceptance mapping:** <bullets mapping each relevant `# Task` acceptance criterion to this pass or "deferred / N/A">
+3. **Acceptance mapping:** <bullets mapping each relevant task-requirements acceptance criterion to this pass or "deferred / N/A">
 
 ## Slices
 
@@ -227,7 +227,7 @@ risk — not from how long the plan is. For sliced work, set these fields for th
    - **Production risk:** `low` | `medium` | `high`
    - **Implementation steps:** <ordered 3-10 steps naming modules/functions, call order, env keys or config fields, migrations of call paths, enough that a coder need not re-walk the repo for the main spine>
    - **Invariants / contracts:** <APIs, kwargs, types, failure modes, logging level, thread/async rules, "must not change" behaviors>
-   - **Acceptance mapping:** <bullets: each `# Task` criterion this slice satisfies, or "N/A">
+   - **Acceptance mapping:** <bullets: each task-requirements criterion this slice satisfies, or "N/A">
    - **Validate:** <checks proving this slice works; gate before starting the next slice>
    - **Review focus:** <correctness, contracts, regressions, tests a reviewer should verify>
    - **Rollback:** <optional; when slice failure would be expensive to unwind>
@@ -258,7 +258,7 @@ risk — not from how long the plan is. For sliced work, set these fields for th
 
 # Next Action Values
 
-Use in **## Planning summary** and `current-handoff.md`:
+Use in **## Planning summary** and `.session/STATE.md`:
 
 - `direct-code`: Planning adds little value; operator may send straight to a coder.
 - `dispatch-single-pass`: One coder pass then one review.
