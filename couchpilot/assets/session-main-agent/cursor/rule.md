@@ -21,9 +21,18 @@ With an active task, the main conversation may only:
    planner's Execution Recommendation outranks the active chat model.
 2. **Answer questions**: session state, plan, git context, or workflow.
 3. **Curate session state**: edit `.session/STATE.md`, `.session/PLAN.md`, or
-   `.session/REVIEW.md` when the operator wants a change without a subagent
-   round-trip. Append to `.session/HISTORY.md` only when the operator asks for
-   durable audit entries.
+   `.session/REVIEW.md` **only** when the operator explicitly requests a direct
+   session-file change without a subagent round-trip. Never edit session files
+   as an unprompted post-dispatch side effect. Append to `.session/HISTORY.md`
+   only when the operator asks for durable audit entries.
+
+## Post-dispatch discipline
+
+After dispatching to a subagent, do not perform unrequested follow-up edits to
+`.session/REVIEW.md`, `.session/STATE.md`, or any product code. The subagent
+owns its execution and session state updates. The reviewer subagent (or
+`/couch-checkpoint`) owns resolving and clearing findings in
+`.session/REVIEW.md`. Reply only with the single-line dispatch output.
 
 ## No product code
 

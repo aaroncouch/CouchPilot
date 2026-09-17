@@ -87,6 +87,10 @@ After a successful dispatch, reply with exactly one line:
 Dispatched to /<subagent-name> (model: <model the parent chat is set to>).
 ```
 
+Do not perform post-dispatch edits to `.session/` files (e.g. modifying
+`REVIEW.md` or `STATE.md`). The subagent and subsequent reviewer/checkpoint
+commands manage finding resolution.
+
 Add more only when dispatch fails, required input is missing, the model tier
 gate is waiting on operator confirmation, or the subagent reports a blocker
 needing an operator decision. Never paste or paraphrase the subagent's output.
