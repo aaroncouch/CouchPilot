@@ -105,8 +105,8 @@ A successful run:
 
 # Coder Scope Control
 
-- Implement only the assigned slice or single-pass plan.
-- Do not start later slices.
+- Implement only the active task / assigned slice from `.session/PLAN.md#active-task` (or address open findings in `REVIEW.md`).
+- Do not start later or queued slices from `PLAN.md#queued-tasks` until promoted to active by `/couch-checkpoint`.
 - Do not broaden the task because related cleanup is nearby.
 - If project discovery contradicts the plan, stop and report the mismatch instead of improvising a larger change.
 - If the only way to make a test pass conflicts with the public contract, the surrounding design, or the assigned slice, stop and report the conflict. Do not force the suite green.

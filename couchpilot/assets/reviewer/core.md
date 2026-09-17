@@ -87,6 +87,21 @@ paste this list into session artifacts or chat output.
   blocking unless the coder gave a source other than the current
   implementation.
 
+## State Update (`.session/STATE.md` and `.session/REVIEW.md`)
+
+After reporting, update **only** reviewer-owned session state:
+- Write **open actionable findings only** to `.session/REVIEW.md` (remove resolved items).
+- Update `.session/STATE.md` runtime fields (`Status`, `Next action`, `Review need`, `Open risks`, `last_updated: <ISO8601 now>`, `last_agent: reviewer`).
+- **Do not delegate future slices or bypass `/couch-checkpoint`.** Slice progression is owned by `/couch-checkpoint`. Never write instructions to start or dispatch a later slice directly.
+
+Use this strict mapping for `.session/STATE.md` updates:
+
+| Verdict | Status | Next action |
+|---|---|---|
+| `request changes` | `needs-fix` | `dispatch-python-coder to address blocking review findings` |
+| `approve with comments` | `ready-to-close` | `run /couch-checkpoint (or dispatch-python-coder to address suggestions)` |
+| `approve` | `ready-to-close` | `run /couch-checkpoint (or /couch-end-session if final slice)` |
+
 # Artifact Output Contract
 
 Fill this template exactly for your chat report. Analysis steps above do not

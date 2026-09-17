@@ -13,6 +13,7 @@ resolve `state_path`, `plan_path`, and `review_path`. Do not alter the pointer.
 to. Confirm that the requested review matches `STATE.md` before writing; if it
 does not, ask the operator to resolve the session through the main workflow.
 Update only open findings in `.session/REVIEW.md` and runtime fields on
-`.session/STATE.md` after completing the review.
+`.session/STATE.md` after completing the review. Do not delegate future
+slices in `Next action`—slice transitions belong to `/couch-checkpoint`.
 
 {{core}}
