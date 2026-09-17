@@ -27,6 +27,19 @@ Pass compact pointers, never synthesized history; subagents read the referenced
 sections themselves. Omit scaffolding the target already owns: inspect-first
 reminders, session mechanics, tooling discovery, loaded-context announcements.
 
+## Active task boundary
+
+Dispatch only the active work defined in `.session/STATE.md` and
+`.session/PLAN.md#active-task` (or open items in `.session/REVIEW.md`).
+Never dispatch, build prompts for, or authorize work on queued tasks from
+`PLAN.md#queued-tasks`.
+
+When the active task is completed or approved, queued work becomes active only
+after the operator runs `/couch-checkpoint` to collapse completed state into
+`HISTORY.md`, prune warm artifacts, and promote the next slice. If the operator
+asks to work on a queued slice without checkpointing, remind them to run
+`/couch-checkpoint` first.
+
 ## Clarification gate
 
 If the request does not name `/<subagent>`, ask which to dispatch. If it names

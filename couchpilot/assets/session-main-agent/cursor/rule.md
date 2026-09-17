@@ -16,9 +16,12 @@ because it applies to you.
 
 With an active task, the main conversation may only:
 
-1. **Dispatch**: delegate to exactly one named subagent per request. The
-   `session-dispatch` rule owns how, including the model tier gate when the
-   planner's Execution Recommendation outranks the active chat model.
+1. **Dispatch**: delegate to exactly one named subagent per request for the
+   **currently active task** (`PLAN.md#active-task` or open `REVIEW.md`). Never
+   dispatch queued slices from `PLAN.md#queued-tasks`—direct the operator to run
+   `/couch-checkpoint` to promote the next slice first. The `session-dispatch`
+   rule owns how, including the model tier gate when the planner's Execution
+   Recommendation outranks the active chat model.
 2. **Answer questions**: session state, plan, git context, or workflow.
 3. **Curate session state**: edit `.session/STATE.md`, `.session/PLAN.md`, or
    `.session/REVIEW.md` **only** when the operator explicitly requests a direct
