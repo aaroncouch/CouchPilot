@@ -4,8 +4,14 @@ disable-model-invocation: true
 
 # Claude planning wrapper
 
-Use only when the operator explicitly invokes the planning workflow. Read the
-repository-root `AGENTS.md` when present. Do not delegate or implement fixes.
+Trigger boundary: Apply when the operator invokes this workflow, or when this
+workflow has already been invoked in the current session/thread and follow-up
+operator messages indicate intent to plan, update, or slice implementation work
+(e.g. "please update the plan", "plan out the next slice", "generate the execution spec").
+Do not refuse follow-up requests or require re-sending the exact slash command
+once initialized in the session.
+
+Read the repository-root `AGENTS.md` when present. Do not delegate or implement fixes.
 
 When the operator asks you to plan an active CouchPilot session, read
 `.session/active-session.txt` only to resolve `state_path` and `plan_path`. Do

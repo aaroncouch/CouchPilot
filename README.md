@@ -28,6 +28,7 @@ main chat:
 
 ```text
 /couch-task-brief <paste raw task notes>
+/couch-architect
 /couch-begin-session task: feat-foo-module implement foo; goals, constraints, acceptance criteria
 /couch-planner
 /couch-python-coder
@@ -188,7 +189,7 @@ The compiler synthesizes host-native scope with no `cursor/rule.md` or
 | present | `alwaysApply: false` + `globs` | `paths: [...]` |
 
 **Canonical shared rules:** `code-quality`, `test-integrity`, `project-guide`,
-`agent-artifact-writing`, `session-artifacts`, `python`, `python-tests`.
+`agent-artifact-writing`, `session-artifacts`, `writing-voice`, `python`, `python-tests`.
 
 ### Explicit wrappers (when hosts diverge)
 
@@ -214,7 +215,7 @@ Installed names carry a `couch-` prefix. The two hosts play different roles:
 - **Cursor**: day-to-day loop with session commands, planner/coder/reviewer
   subagents, and always-on quality and session rules.
 - **Claude Code**: manual-invocation bridge for high-reasoning workflows
-  (`/couch-planner`, `/couch-reviewer`, `/couch-task-brief`,
+  (`/couch-architect`, `/couch-planner`, `/couch-reviewer`, `/couch-task-brief`,
   `/couch-checkpoint`, `/couch-migrate-session`) without leaving the on-disk
   session protocol.
 
@@ -275,11 +276,11 @@ Compiled install layout:
 ### Rules
 
 - `couch-code-quality`, `couch-test-integrity`, `couch-project-guide`,
-  `couch-agent-artifact-writing`, `couch-session-artifacts` (global).
+  `couch-agent-artifact-writing`, `couch-session-artifacts`, `couch-writing-voice`
+  (global).
 - `couch-python` (`*.py` files).
 - `couch-python-tests` (test file patterns).
-- `couch-session-main-agent`, `couch-session-dispatch`, `couch-writing-voice`
-  (Cursor-only session and workflow rules).
+- `couch-session-main-agent`, `couch-session-dispatch` (Cursor-only session and workflow rules).
 
 Session rules are **inert** without an active session (no
 `.session/active-session.txt` or `task_id: (none)`).
@@ -288,37 +289,44 @@ Session rules are **inert** without an active session (no
 
 | Role | Cursor | Claude Code |
 |---|---|---|
+| Distill brief | `/couch-task-brief` (command) | `/couch-task-brief` (manual skill) |
+| Architectural framing | `/couch-architect` (subagent) | `/couch-architect` (manual skill) |
+| Begin session | `/couch-begin-session` (command) | `/couch-begin-session` (manual skill) |
 | Plan | `/couch-planner` (subagent) | `/couch-planner` (manual skill) |
 | Implement | `/couch-python-coder` (subagent) | (main chat / direct) |
 | Review | `/couch-reviewer` (subagent) | `/couch-reviewer` (manual skill) |
-| Adjudicate external review | `/couch-adjudicate-review` (command) | `/couch-adjudicate-review` (manual skill) |
-| Distill brief | `/couch-task-brief` (command) | `/couch-task-brief` (manual skill) |
 | Checkpoint (task transition) | `/couch-checkpoint` (command) | `/couch-checkpoint` (manual skill) |
+| End session | `/couch-end-session` (command) | `/couch-end-session` (manual skill) |
+| Adjudicate external review | `/couch-adjudicate-review` (command) | `/couch-adjudicate-review` (manual skill) |
 | Migrate legacy session | `/couch-migrate-session` (command) | `/couch-migrate-session` (manual skill) |
 | Curate `AGENTS.md` | `/couch-curate-project-guide` (command) | `/couch-curate-project-guide` (manual skill) |
+| Plainspoken writing | `/couch-plainspoken-writing` (skill) | `/couch-plainspoken-writing` (auto skill) |
+| Python style | `/couch-python-style` (skill) | `/couch-python-style` (auto skill) |
+| Test integrity examples | `/couch-test-integrity-examples` (skill) | `/couch-test-integrity-examples` (auto skill) |
 
 Cursor subagents use `model: inherit` to run whatever model the parent chat
 is set to. Pin a specific model before dispatch; on Auto, `inherit` inherits
 Auto's pick.
 
-Other commands: `/couch-begin-session`, `/couch-checkpoint`, `/couch-migrate-session`, `/couch-adjudicate-review`, `/couch-end-session`,
-`/couch-audit-test-integrity`, `/couch-deslop-main-diff`,
+Other Cursor commands: `/couch-audit-test-integrity`, `/couch-deslop-main-diff`,
 `/couch-deslop-workspace`.
 
 ## Daily Workflow
 
 1. Optional: `/couch-task-brief` to distill raw notes into
    `.session/task-brief.md`.
-2. `/couch-begin-session task: feat-foo-module …` (or `use previous task brief`).
-3. `/couch-planner` (set the model picker first).
-4. `/couch-python-coder` (executes the active plan slice).
-5. `/couch-reviewer` (reviews the changed diff).
-6. Iterate coder and reviewer as needed.
-7. When a slice or queued task is done (evidence on `STATE.md`, review clean or
+2. Optional: `/couch-architect` to frame system architecture, invariants, and
+   component contracts into `.session/ARCH.md`.
+3. `/couch-begin-session task: feat-foo-module …` (or `use previous task brief`).
+4. `/couch-planner` (breaks architectural contracts into granular execution slices).
+5. `/couch-python-coder` (executes the active plan slice).
+6. `/couch-reviewer` (reviews the changed diff).
+7. Iterate coder and reviewer as needed.
+8. When a slice or queued task is done (evidence on `STATE.md`, review clean or
    findings addressed), run `/couch-checkpoint` to append `HISTORY.md`, prune
    resolved items from `REVIEW.md`, collapse completed detail in `PLAN.md`, and
    regenerate compact `STATE.md` for the next queued task.
-8. Repeat steps 4 through 7 for remaining slices, then close with
+9. Repeat steps 5 through 8 for remaining slices, then close with
    `/couch-end-session task: feat-foo-module completed`.
 
 Keep delegated prompts short. The dispatcher curates from `.session/STATE.md`
@@ -460,6 +468,7 @@ Dispatched to /couch-python-coder (model: Sonnet 4).
 - Active plan: `.session/PLAN.md`
 - Open review findings: `.session/REVIEW.md`
 - Cold audit trail: `.session/HISTORY.md` (subagents do not read by default)
+- Architectural framing: `.session/ARCH.md`
 - Task brief: `.session/task-brief.md`
 - Archive: `.session/archive/<task-id>/`
 - Tooling cache (Cursor coder): `.cursor/scratch/tooling.md`

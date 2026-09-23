@@ -205,7 +205,7 @@ class ValidationTests(unittest.TestCase):
             "---\n---\n\n{{core}}\n",
         )
         errors = self._errors_for("widget")
-        self.assertTrue(any("disable-model-invocation: true" in e for e in errors))
+        self.assertTrue(any("disable-model-invocation" in e for e in errors))
 
     def test_duplicate_target_wrappers_is_an_error(self) -> None:
         self.assets.add_shared_asset("widget")
@@ -447,11 +447,13 @@ class PolymorphicHostProfileValidationTests(unittest.TestCase):
 
     def test_claude_skill_requires_disable_model_invocation(self) -> None:
         errors = self.claude.validate_family_frontmatter("skill", {})
-        self.assertEqual(errors, ["claude skill wrappers require disable-model-invocation: true"])
+        self.assertEqual(errors, ["claude skill wrappers require a boolean disable-model-invocation field"])
 
     def test_claude_valid_skill_frontmatter_has_no_errors(self) -> None:
         errors = self.claude.validate_family_frontmatter("skill", {"disable-model-invocation": True})
         self.assertEqual(errors, [])
+        errors_false = self.claude.validate_family_frontmatter("skill", {"disable-model-invocation": False})
+        self.assertEqual(errors_false, [])
 
 
 class LoadHostProfilesTests(unittest.TestCase):
@@ -669,6 +671,92 @@ class RealAssetsCompileTests(unittest.TestCase):
         self.assertIs(skill_doc.frontmatter["disable-model-invocation"], True)
         self.assertIn("Adjudication Protocol", command.content)
         self.assertIn("Adjudication Protocol", skill.content)
+
+    def test_architect_asset_compiles_for_cursor_and_claude(self) -> None:
+        artifacts = compile_assets(REPO_ASSETS_ROOT)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+        self.assertIn(("architect", "cursor", "agent"), by_key)
+        self.assertIn(("architect", "claude", "skill"), by_key)
+
+        agent = by_key[("architect", "cursor", "agent")]
+        skill = by_key[("architect", "claude", "skill")]
+        self.assertEqual(agent.relative_path, Path("agents/couch-architect.md"))
+        self.assertEqual(skill.relative_path, Path("skills/couch-architect/SKILL.md"))
+
+        agent_doc = parse_document(agent.content)
+        skill_doc = parse_document(skill.content)
+        self.assertIn(
+            "Frame system architecture",
+            agent_doc.frontmatter["description"],
+        )
+        self.assertEqual(agent_doc.frontmatter["model"], "inherit")
+        self.assertIs(skill_doc.frontmatter["disable-model-invocation"], True)
+        self.assertIn("Architectural Framing Core", agent.content)
+        self.assertIn("Architectural Framing Core", skill.content)
+
+    def test_writing_voice_asset_synthesizes_for_cursor_and_claude(self) -> None:
+        artifacts = compile_assets(REPO_ASSETS_ROOT)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+        self.assertIn(("writing-voice", "cursor", "rule"), by_key)
+        self.assertIn(("writing-voice", "claude", "rule"), by_key)
+
+        cursor_rule = by_key[("writing-voice", "cursor", "rule")]
+        claude_rule = by_key[("writing-voice", "claude", "rule")]
+        self.assertEqual(cursor_rule.relative_path, Path("rules/couch-writing-voice.mdc"))
+        self.assertEqual(claude_rule.relative_path, Path("rules/couch-writing-voice.md"))
+
+        cursor_doc = parse_document(cursor_rule.content)
+        claude_doc = parse_document(claude_rule.content)
+        self.assertIs(cursor_doc.frontmatter["alwaysApply"], True)
+        self.assertNotIn("globs", cursor_doc.frontmatter)
+        self.assertNotIn("paths", claude_doc.frontmatter)
+
+    def test_begin_session_asset_compiles_for_cursor_and_claude(self) -> None:
+        artifacts = compile_assets(REPO_ASSETS_ROOT)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+        self.assertIn(("begin-session", "cursor", "command"), by_key)
+        self.assertIn(("begin-session", "claude", "skill"), by_key)
+
+        command = by_key[("begin-session", "cursor", "command")]
+        skill = by_key[("begin-session", "claude", "skill")]
+        self.assertEqual(command.relative_path, Path("commands/couch-begin-session.md"))
+        self.assertEqual(skill.relative_path, Path("skills/couch-begin-session/SKILL.md"))
+
+        command_doc = parse_document(command.content)
+        skill_doc = parse_document(skill.content)
+        self.assertIn("Start or resume a CouchPilot implementation session", command_doc.frontmatter["description"])
+        self.assertIn("Start or resume a CouchPilot implementation session", skill_doc.frontmatter["description"])
+        self.assertIs(skill_doc.frontmatter["disable-model-invocation"], True)
+
+    def test_end_session_asset_compiles_for_cursor_and_claude(self) -> None:
+        artifacts = compile_assets(REPO_ASSETS_ROOT)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+        self.assertIn(("end-session", "cursor", "command"), by_key)
+        self.assertIn(("end-session", "claude", "skill"), by_key)
+
+        command = by_key[("end-session", "cursor", "command")]
+        skill = by_key[("end-session", "claude", "skill")]
+        self.assertEqual(command.relative_path, Path("commands/couch-end-session.md"))
+        self.assertEqual(skill.relative_path, Path("skills/couch-end-session/SKILL.md"))
+
+        command_doc = parse_document(command.content)
+        skill_doc = parse_document(skill.content)
+        self.assertIn("Close the active CouchPilot implementation session", command_doc.frontmatter["description"])
+        self.assertIn("Close the active CouchPilot implementation session", skill_doc.frontmatter["description"])
+        self.assertIs(skill_doc.frontmatter["disable-model-invocation"], True)
+
+    def test_plainspoken_writing_asset_compiles_for_cursor_and_claude(self) -> None:
+        artifacts = compile_assets(REPO_ASSETS_ROOT)
+        by_key = {(a.asset_id, a.target, a.family): a for a in artifacts}
+        self.assertIn(("plainspoken-writing", "cursor", "skill"), by_key)
+        self.assertIn(("plainspoken-writing", "claude", "skill"), by_key)
+
+        cursor_skill = by_key[("plainspoken-writing", "cursor", "skill")]
+        claude_skill = by_key[("plainspoken-writing", "claude", "skill")]
+        self.assertEqual(cursor_skill.relative_path, Path("skills/couch-plainspoken-writing/SKILL.md"))
+        self.assertEqual(claude_skill.relative_path, Path("skills/couch-plainspoken-writing/SKILL.md"))
+        skill_doc = parse_document(claude_skill.content)
+        self.assertIs(skill_doc.frontmatter["disable-model-invocation"], False)
 
 
 class FindWslWindowsCursorDirTests(unittest.TestCase):

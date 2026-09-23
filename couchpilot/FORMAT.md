@@ -59,8 +59,8 @@ The compiler **synthesizes** per-host wrappers — do not create
 Synthesis is implemented in `compiler.py::_synthetic_rule_frontmatter()`.
 
 **Canonical shared rules in this repo:** `code-quality`, `test-integrity`,
-`project-guide`, `agent-artifact-writing`, `session-artifacts`, `python`,
-`python-tests`.
+`project-guide`, `agent-artifact-writing`, `session-artifacts`, `writing-voice`,
+`python`, `python-tests`.
 
 ### Shape B: Multi-target divergent asset
 
@@ -79,7 +79,9 @@ Wrappers hold host-specific frontmatter and protocols (`<agent_announcement>`,
 session pointer rules, `disable-model-invocation`, etc.). `core.md` stays
 host-neutral.
 
-**Examples:** `planner`, `reviewer`, `curate-project-guide`, `task-brief`.
+**Examples:** `architect`, `begin-session`, `end-session`, `planner`, `reviewer`,
+`curate-project-guide`, `task-brief`, `plainspoken-writing`, `python-style`,
+`test-integrity-examples`.
 
 ### Shape C: Single-platform asset
 
@@ -92,18 +94,8 @@ couchpilot/assets/session-dispatch/
     └── rule.md        # complete prompt; no {{core}}
 ```
 
-**Examples:** `session-dispatch`, `session-main-agent`, `writing-voice`,
-Cursor-only commands (`begin-session`, `end-session`, …).
-
-### Shape D: Cursor-only skill with optional core
-
-Reference skills often use `cursor/skill.md` with an optional shared `core.md`:
-
-```text
-couchpilot/assets/python-style/
-└── cursor/
-    └── skill.md       # worked examples; may reference a separate core-less body
-```
+**Examples:** `session-dispatch`, `session-main-agent`,
+Cursor-only commands (`audit-test-integrity`, `deslop-main-diff`, `deslop-workspace`).
 
 ### Full wrapper map (when explicit wrappers exist)
 
@@ -179,7 +171,7 @@ Built-in profiles:
 | Key | Class | Install dir | Validation highlights |
 |---|---|---|---|
 | `cursor` | `CursorHostProfile` | `~/.cursor` | rules need `alwaysApply`; agents need `model` |
-| `claude` | `ClaudeHostProfile` | `~/.claude` | shipped skills need `disable-model-invocation: true` |
+| `claude` | `ClaudeHostProfile` | `~/.claude` | skills require boolean `disable-model-invocation` |
 
 `load_host_profiles()` merges optional overrides from repo-root
 `couchpilot.json`. Both `compiler.py` and `sync.py` call

@@ -1,16 +1,14 @@
 ---
-description: Apply plainspoken writing only to human-facing project prose.
-globs: "**/*.py,README.md,CONTRIBUTING.md,CHANGELOG.md,docs/**/*.md,docs/**/*.rst,docs/**/*.txt"
-alwaysApply: false
+description: Apply concise, plainspoken writing to project prose and conversational replies.
+family: rule
 ---
 
 # Writing voice
 
-Apply this rule only to human-facing prose in project files: documentation,
-READMEs, user-facing guides, and prose in source files such as docstrings and
-comments. Do not apply it to agent-facing artifacts: `.cursor/**`, `.claude/**`,
-`.cursor/scratch/**`, `AGENTS.md`, agent prompts, commands, rules, skills,
-session state, or chat replies. Those artifacts follow `agent-artifact-writing`.
+Apply this rule to human-facing prose across project files and conversational replies: documentation,
+READMEs, user-facing guides, docstrings, comments, and chat responses. Do not apply it to agent-facing
+machine artifacts: `.cursor/**`, `.claude/**`, `.cursor/scratch/**`, `AGENTS.md`, session state files
+(`.session/**`), or structured telemetry logs. Those follow `agent-artifact-writing`.
 
 Write for a coworker who will act on the text. Aim at a good Stack Overflow
 answer or an engineering blog post. Not a textbook chapter, and not a press

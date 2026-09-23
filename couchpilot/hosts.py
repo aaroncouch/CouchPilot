@@ -67,8 +67,8 @@ class ClaudeHostProfile(HostProfile):
 
     def validate_family_frontmatter(self, family: str, frontmatter: dict[str, Any]) -> list[str]:
         errors: list[str] = []
-        if family == "skill" and frontmatter.get("disable-model-invocation") is not True:
-            errors.append("claude skill wrappers require disable-model-invocation: true")
+        if family == "skill" and not isinstance(frontmatter.get("disable-model-invocation"), bool):
+            errors.append("claude skill wrappers require a boolean disable-model-invocation field")
         return errors
 
 

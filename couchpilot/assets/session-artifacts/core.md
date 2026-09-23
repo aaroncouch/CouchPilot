@@ -27,6 +27,7 @@ via `.session/.gitignore`).
 | `HISTORY.md` | Cold | Append-only audit trail: completed outcomes, durable decisions, commit SHAs |
 | `archive/` | Cold | Optional detailed records for ended sessions |
 | `active-session.txt` | Pointer | Paths to the four artifacts above; only session-start/end workflows write it |
+| `ARCH.md` | Staging / Warm | Optional architectural framing and system contracts from `/couch-architect` |
 | `task-brief.md` | Staging | Optional pre-session brief from `/couch-task-brief` |
 
 ## Read order
