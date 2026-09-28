@@ -50,6 +50,8 @@ preserve multiple plan versions only when the operator explicitly asks. After
 reporting, update only `.session/STATE.md` and `.session/PLAN.md`: set runtime
 status fields on `STATE.md`; replace `# Active task` (and `# Queued tasks` when
 sliced) with the execution-plan template; and preserve `REVIEW.md`, `HISTORY.md`,
-and frontmatter except `last_updated` and `last_agent`.
+and frontmatter except `last_updated` and `last_agent`. `REVIEW.md`, `HISTORY.md`,
+`ARCH.md`, and `active-session.txt` are strictly read-only. Adhere to your
+guardrails always: skip unauthorized edits and notify deferral in your report.
 
 {{core}}

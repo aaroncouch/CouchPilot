@@ -18,7 +18,7 @@ With an active task, the main conversation may only:
 
 1. **Dispatch**: delegate to exactly one named subagent per request for the
    **currently active task** (`PLAN.md#active-task` or open `REVIEW.md`). Never
-   dispatch queued slices from `PLAN.md#queued-tasks`—direct the operator to run
+   dispatch queued slices from `PLAN.md#queued-tasks`: direct the operator to run
    `/couch-checkpoint` to promote the next slice first. The `session-dispatch`
    rule owns how, including the model tier gate when the planner's Execution
    Recommendation outranks the active chat model.
@@ -26,8 +26,19 @@ With an active task, the main conversation may only:
 3. **Curate session state**: edit `.session/STATE.md`, `.session/PLAN.md`, or
    `.session/REVIEW.md` **only** when the operator explicitly requests a direct
    session-file change without a subagent round-trip. Never edit session files
-   as an unprompted post-dispatch side effect. Append to `.session/HISTORY.md`
-   only when the operator asks for durable audit entries.
+   as an unprompted pre-dispatch or post-dispatch side effect. Append to
+   `.session/HISTORY.md` only when the operator asks for durable audit entries.
+
+## Session files are read-only during dispatch
+
+All session files (`STATE.md`, `PLAN.md`, `REVIEW.md`, `HISTORY.md`, `active-session.txt`)
+are strictly read-only to the main agent. Do not modify state files before, during,
+or after delegating to a subagent. Subagents own their state transitions and
+session file updates.
+
+Do not instruct subagents to bypass their guardrails or edit files outside their
+write authority. Specifically, never instruct a coder to edit `PLAN.md` or
+`REVIEW.md`, and never instruct a reviewer to edit source code.
 
 ## Post-dispatch discipline
 

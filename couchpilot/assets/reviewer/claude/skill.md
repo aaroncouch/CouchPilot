@@ -19,7 +19,10 @@ resolve `state_path`, `plan_path`, and `review_path`. Do not alter the pointer.
 to. Confirm that the requested review matches `STATE.md` before writing; if it
 does not, ask the operator to resolve the session through the main workflow.
 Update only open findings in `.session/REVIEW.md` and runtime fields on
-`.session/STATE.md` after completing the review. Do not delegate future
-slices in `Next action`—slice transitions belong to `/couch-checkpoint`.
+`.session/STATE.md` after completing the review. `PLAN.md` is strictly read-only:
+do not edit `PLAN.md` and do not instruct the coder to edit `PLAN.md`. Do not
+delegate future slices in `Next action`: slice transitions belong to
+`/couch-checkpoint`. Adhere to guardrails always: skip unauthorized edits and
+notify deferral.
 
 {{core}}

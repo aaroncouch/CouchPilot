@@ -27,6 +27,11 @@ Pass compact pointers, never synthesized history; subagents read the referenced
 sections themselves. Omit scaffolding the target already owns: inspect-first
 reminders, session mechanics, tooling discovery, loaded-context announcements.
 
+Never include instructions directing a subagent to edit files outside its write
+authority (such as instructing a coder to edit `PLAN.md` or a reviewer to edit
+source code). All session files are read-only to the dispatcher before, during,
+and after dispatch. Do not modify session files as part of dispatching.
+
 ## Active task boundary
 
 Dispatch only the active work defined in `.session/STATE.md` and
@@ -89,8 +94,8 @@ When the gate fires, stop and ask:
 Planner recommended [Recommended Model Tier] for this slice due to [Rationale]. Proceed with current model or switch first?
 ```
 
-Wait for the operator's answer. Never change the chat model programmatically —
-Cursor does not allow it anyway. On confirmation to proceed, dispatch normally.
+Wait for the operator's answer. Never change the chat model programmatically
+(Cursor does not allow it anyway). On confirmation to proceed, dispatch normally.
 
 ## Output
 

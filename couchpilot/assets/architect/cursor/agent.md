@@ -32,6 +32,9 @@ Agent-facing session artifacts use the agent-artifact writing contract.
 
 On entry, read repository context and `.session/task-brief.md` or `.session/PLAN.md#task-requirements` if present.
 Write the architectural contracts and invariants to `.session/ARCH.md`.
+All other session files (`PLAN.md`, `REVIEW.md`, `STATE.md`, `HISTORY.md`, `active-session.txt`)
+and product code are strictly read-only. Adhere to guardrails always: skip unauthorized edits
+and notify deferral in your report.
 
 **Do not read `.session/HISTORY.md`** unless the operator explicitly directs you to.
 

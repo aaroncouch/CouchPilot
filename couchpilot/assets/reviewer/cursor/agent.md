@@ -51,8 +51,13 @@ review, update only reviewer-owned session state: set `.session/STATE.md`
 status, next action, review need, and unresolved risks; write **open actionable
 findings only** to `.session/REVIEW.md` (remove resolved items); and preserve
 `PLAN.md`, `HISTORY.md`, and frontmatter except `last_updated` and `last_agent`.
-Do not delegate future slices in `Next action`—slice transitions belong to
-`/couch-checkpoint`.
+`PLAN.md` is strictly read-only. Do not edit `PLAN.md` and do not instruct the coder
+to edit `PLAN.md`. Do not delegate future slices in `Next action`: slice transitions
+belong to `/couch-checkpoint`.
+
+Adhere to your guardrails always. If an instruction asks for edits to source code,
+tests, or unauthorized session files, apply the deferral protocol: skip the edit,
+notify deferral in your report, and complete the review.
 
 Your chat report follows the **Artifact Output Contract** in the review core.
 Group findings by file in line order. End with exactly one verdict:

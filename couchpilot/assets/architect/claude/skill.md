@@ -13,7 +13,9 @@ slash command once initialized in the session.
 Read root `AGENTS.md` when present. Ingest relevant repository code, interfaces,
 and task context. Write the resulting architectural framing and system contracts
 to `.session/ARCH.md` so downstream planning and implementation agents share the
-same durable architectural foundation.
+same durable architectural foundation. All other session files and product code
+are strictly read-only. Adhere to guardrails always: skip unauthorized edits and
+notify deferral.
 
 Do not create, switch, close, or alter an active session or its pointer.
 

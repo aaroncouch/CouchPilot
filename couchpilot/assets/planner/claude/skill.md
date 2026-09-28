@@ -23,8 +23,10 @@ operator to start or repair the session through the main workflow.
 
 When a valid active session is in scope, update only `.session/STATE.md` and
 `.session/PLAN.md` (active and queued tasks). Preserve `REVIEW.md` and
-`HISTORY.md` and all frontmatter except `last_updated` and `last_agent`. Default
-to replacing the active plan unless the operator explicitly requests retained
-plan versions.
+`HISTORY.md` and all frontmatter except `last_updated` and `last_agent`.
+`REVIEW.md`, `HISTORY.md`, `ARCH.md`, and `active-session.txt` are strictly
+read-only. Adhere to guardrails always: skip unauthorized edits and notify
+deferral. Default to replacing the active plan unless the operator explicitly
+requests retained plan versions.
 
 {{core}}
