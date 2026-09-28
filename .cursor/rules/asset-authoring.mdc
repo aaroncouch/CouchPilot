@@ -1,0 +1,108 @@
+---
+description: Canonical CouchPilot asset authoring standards for couchpilot/assets/.
+globs: "couchpilot/assets/**"
+alwaysApply: false
+---
+
+# Asset Authoring
+
+These standards apply when editing canonical sources under `couchpilot/assets/`.
+Compiled user-level artifacts live in `~/.cursor` and `~/.claude` via `sync.py` —
+do not edit those when authoring assets.
+
+See `couchpilot/FORMAT.md` for the full schema.
+
+## Directory Layout
+
+Each asset is one kebab-case directory: `couchpilot/assets/<asset-id>/`.
+
+| Asset shape | Files | Installed as |
+|---|---|---|
+| Shared rule (both hosts) | `core.md` with `family: rule` (+ optional `globs`) | `couch-<asset-id>` rule on Cursor and Claude |
+| Path-scoped shared rule | `core.md` with `family: rule` and `globs` | Compiler synthesizes `alwaysApply`/`globs` (Cursor) and `paths` (Claude) |
+| Multi-target divergent | `core.md` + explicit wrappers per host/family | e.g. `planner`: `cursor/agent.md` + `claude/skill.md` |
+| Single-platform | One wrapper only (no `core.md`) | e.g. `session-dispatch/cursor/rule.md` |
+| Cursor command | `cursor/command.md` (+ optional `core.md`) | `~/.cursor/commands/couch-<asset-id>.md` |
+
+## Shared Rules (`core.md` Only)
+
+When logic is identical across Cursor and Claude, author only `core.md`:
+
+```yaml
+---
+description: <one-line summary>
+family: rule
+---
+```
+
+For path-scoped rules, add `globs`:
+
+```yaml
+globs: "**/*.py"
+```
+
+Or a YAML list for multiple patterns:
+
+```yaml
+globs:
+  - "**/test_*.py"
+  - "**/tests/**/*.py"
+```
+
+Do **not** create `cursor/rule.md` or `claude/rule.md` boilerplate. The
+compiler synthesizes host-native frontmatter from `family: rule` and `globs`.
+
+## Multi-Target Assets With Divergent Wrappers
+
+When hosts differ (subagent vs manual skill, announcement protocol, session
+mechanics), use `core.md` plus explicit wrappers:
+
+- `cursor/agent.md` or `cursor/command.md` or `cursor/skill.md`
+- `claude/skill.md` or `claude/rule.md` as needed
+
+Every wrapper that references shared content must contain exactly one
+`{{core}}` marker. Wrappers hold host-specific frontmatter and mechanics only.
+
+## Host Neutrality in `core.md`
+
+`core.md` must not contain:
+
+- `<agent_announcement>` blocks or loaded-context announcement protocols
+- Cursor slash-command syntax (`/couch-*`) as operational instructions
+- Claude `disable-model-invocation` semantics
+- Chat output formatting owned by a host wrapper
+
+Cross-references to installed asset names in prose **must** use the `couch-`
+prefix (e.g. `/couch-begin-session`). The compiler does not rewrite prose.
+
+## Polyglot Prompt Structure
+
+Core rules and reference skills use structures that work across model families:
+
+| Convention | Required Action | Prohibited Shortcut |
+|---|---|---|
+| Guardrails | Paired decision tables: `Scenario \| Required Action \| Prohibited Shortcut` | Long lists of "Never do X" without an alternative |
+| Few-shot examples | Wrap in `<bad_example>` and `<good_example>` XML tags | Bare code blocks that models may treat as live instructions |
+| Verification | Trailing `Rule id: <id>` on rules, `Skill id: <id>` on skills | Omitting or renaming validation tokens |
+| Subagent reports | Fenced artifact templates in wrappers, not in `core.md` | Dumping internal reasoning steps into session files |
+
+Separate **Analysis Guidelines** (how to think) from **Artifact Output
+Contracts** (strict templates for files and chat reports).
+
+## Frontmatter Ownership
+
+- `core.md` owns `description` when present; wrappers must not duplicate it.
+- `family: rule` and `globs` live in `core.md` only — not in synthesized wrappers.
+- Cursor rule scope (`alwaysApply`, `globs`) and Claude `paths` are compiler output, not hand-authored in wrappers for shared rules.
+
+## Before Committing Asset Changes
+
+Run:
+
+```bash
+python3 -m unittest discover -s tests
+python3 sync.py --dry-run
+```
+
+Fix every validation error before finishing. Use `/validate-assets` in this
+project for a quick check.

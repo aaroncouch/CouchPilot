@@ -1,0 +1,71 @@
+---
+description: CouchPilot compiler and Python tooling conventions.
+globs: "couchpilot/**/*.py,sync.py,tests/**/*.py"
+alwaysApply: false
+---
+
+# Compiler Conventions
+
+These standards apply when editing CouchPilot's Python toolchain:
+`couchpilot/compiler.py`, `couchpilot/hosts.py`, `sync.py`, and
+`tests/test_compiler.py`.
+
+## Dependencies
+
+| Scenario | Required Action | Prohibited Shortcut |
+|---|---|---|
+| Compiler and sync logic | Pure Python standard library only | Third-party packages (PyYAML, pathlib backports, etc.) |
+| New functionality | Extend existing modules with stdlib tools | Adding requirements.txt entries for core compile path |
+
+## Data Model
+
+- Use `@dataclass(frozen=True)` for immutable value types (`ParsedDocument`,
+  `Wrapper`, `Asset`, `RenderedArtifact`, `HostProfile`).
+- Host-specific validation belongs in polymorphic subclasses
+  (`CursorHostProfile`, `ClaudeHostProfile`), not scattered conditionals.
+- Register profiles in `create_default_profiles()`; optional overrides merge
+  from repo-root `couchpilot.json` via `load_host_profiles()`.
+
+## Validation Discipline
+
+`validate_asset()` must collect **every** schema violation for an asset before
+returning — not stop at the first error. `compile_assets()` aggregates errors
+across all assets and raises `CompilerError` with the full list.
+
+When adding validation rules, add matching test cases in
+`tests/test_compiler.py` using synthetic fixtures under a temp `assets/` root.
+
+## Compiler Responsibilities
+
+Keep `compiler.py` pure: read `couchpilot/assets/`, validate, render. No writes
+outside the assets tree during compile. Filesystem installs belong in `sync.py`.
+
+Key extension points:
+
+- `discover_assets()` — walk asset dirs; synthesize wrappers when `core.md`
+  declares `family` and no explicit wrappers exist.
+- `_synthetic_rule_frontmatter()` — map canonical `globs` to Cursor
+  `alwaysApply`/`globs` and Claude `paths`.
+- `merge_frontmatter()` — core owns `description`; wrapper owns host fields.
+- `destination_for()` — path table from `HostProfile`.
+
+## Testing
+
+| Scenario | Required Action | Prohibited Shortcut |
+|---|---|---|
+| New compile behavior | Add focused tests in `tests/test_compiler.py` | Manual-only verification |
+| Path-scoped rule synthesis | Assert rendered `alwaysApply`, `globs`, and `paths` | Assuming synthesis works without tests |
+| Host profile changes | Test `validate_family_frontmatter` and config overrides | Skipping polymorphic validation tests |
+
+Run before finishing:
+
+```bash
+python3 -m unittest discover -s tests
+python3 sync.py --dry-run
+```
+
+## Sync Safety
+
+`sync.py` writes only to configured host install dirs using hash-compare and
+manifest tracking. Never delete user files outside the CouchPilot manifest.
+Prune only when `--prune` is explicitly passed.
